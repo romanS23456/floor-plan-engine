@@ -115,50 +115,12 @@ Implemented:
 ### MVP 7 — RoomProgram v1
 
 Goal:
-Add minimal structured project context so GPT-architect can understand:
-- project type;
-- design stage;
-- household composition;
-- lifestyle requirements;
-- priorities;
-- missing brief data;
-- limitations of plan review.
+Describe expected room composition and compare the actual Plan against it.
 
 Implement:
-- app/project_brief.py
-- ProjectBrief model
-- Household model
-- Lifestyle model
-- app/brief_validation.py
-- validate_project_brief()
-- validate_plan_against_brief()
-- POST /briefs/validate
-- POST /plans/validate-with-brief
-- brief_completeness block
-- brief_issues
-- brief_plan_issues
-- tests
-
-Do NOT implement in MVP 6:
-- natural language brief parsing
-- automatic constraint generation
-- full questionnaire
-- CRM/client onboarding
-- SiteContext
-- RoomProgram
-- Review endpoint
-
----
-
-## Planned
-
-### MVP 7 — RoomProgram v1
-
-Goal:
-Describe expected room composition and compare plan against it.
-
-Implement:
+- app/room_program.py
 - RoomProgram model
+- RoomRequirement model
 - required rooms
 - optional rooms
 - target/min/max areas
@@ -166,7 +128,24 @@ Implement:
 - forbidden adjacency
 - program match validation
 - missing room issues
+- area mismatch issues
+- adjacency mismatch issues
 - POST /plans/program-check
+- tests
+
+Do NOT implement in MVP 7:
+- natural language room program parsing
+- automatic room generation
+- SiteContext
+- Zoning
+- Review endpoint
+- Operations API
+- Wall model
+- UI
+
+---
+
+## Planned
 
 ### MVP 8 — SiteContext Lite
 
