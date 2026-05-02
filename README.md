@@ -290,9 +290,7 @@ curl -X POST http://localhost:8000/plans/program-check \
   -H "Content-Type: application/json" \
   -d '{
     "plan": {...},
-    "room_program": {...},
-    "constraints": [...],
-    "project_brief": {...}
+    "room_program": {...}
   }'
 ```
 
@@ -304,10 +302,6 @@ Response includes all standard validation fields plus:
 - `program_summary.missing_room_types` — required room types not found
 - `program_summary.unsupported_checks` — unsupported adjacency types (e.g., "near")
 - `program_issues` — list of ValidationIssue objects for program mismatches
-- `constraint_violations` — if constraints provided
-- `brief_completeness` — if project_brief provided
-- `brief_issues` — if project_brief provided
-- `brief_plan_issues` — if project_brief provided
 
 **Note:** RoomProgram is intent only — it does not infer missing rooms as geometry or generate rooms automatically. Distance-based "near" adjacency will be implemented in a future MVP.
 

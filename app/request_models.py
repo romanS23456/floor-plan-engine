@@ -25,5 +25,3 @@ class PlanProgramValidationRequest(BaseModel):
     """Request model for program-check endpoint."""
     plan: Plan
     room_program: RoomProgram
-    project_brief: Optional[ProjectBrief] = None
-    constraints: List[PlanningConstraint] = Field(default_factory=list)

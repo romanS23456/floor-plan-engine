@@ -108,35 +108,50 @@ Implemented:
 - AGENTS.md updated with ProjectBrief guidelines
 - All 70 tests passing
 
+### MVP 7 — RoomProgram v1 ✅
+
+Implemented:
+- app/room_program.py — RoomProgram, RoomRequirement, AdjacencyRequirement models
+- app/program_validation.py — validate_room_program()
+- POST /plans/program-check
+- required/optional room requirements
+- min/max/target area checks
+- direct adjacency validation
+- separated adjacency validation
+- near adjacency marked as unsupported/info
+- program_summary and program_issues
+- tests/test_room_program.py
+- All 89 tests passing
+
 ---
 
 ## Current / Next
 
-### MVP 7 — RoomProgram v1
+### MVP 8 — SiteContext Lite
 
 Goal:
-Describe expected room composition and compare the actual Plan against it.
+Add minimal site context for private house review.
 
 Implement:
-- app/room_program.py
-- RoomProgram model
-- RoomRequirement model
-- required rooms
-- optional rooms
-- target/min/max areas
-- required adjacency
-- forbidden adjacency
-- program match validation
-- missing room issues
-- area mismatch issues
-- adjacency mismatch issues
-- POST /plans/program-check
+- app/site_context.py
+- SiteContext model
+- north_vector_deg
+- entry_side
+- driveway_side
+- garden_side
+- views
+- neighbor/privacy risks
+- slope optional
+- utilities unknown flags
+- POST /plans/site-check
 - tests
 
-Do NOT implement in MVP 7:
-- natural language room program parsing
-- automatic room generation
-- SiteContext
+Do NOT implement in MVP 8:
+- cadastral/legal engine
+- exact normative compliance
+- full site plan CAD
+- terrain modeling
+- automatic house placement
 - Zoning
 - Review endpoint
 - Operations API
@@ -146,22 +161,6 @@ Do NOT implement in MVP 7:
 ---
 
 ## Planned
-
-### MVP 8 — SiteContext Lite
-
-Goal:
-Add minimal site context for private house review.
-
-Implement:
-- north vector
-- entry side
-- driveway side
-- garden side
-- views
-- neighbor/privacy risks
-- slope optional
-- utilities unknown flags
-- POST /plans/site-check
 
 ### MVP 9 — Zoning Tags v1
 

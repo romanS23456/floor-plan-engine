@@ -638,97 +638,51 @@ def test_program_check_keeps_all_standard_fields():
     assert "connectivity" in data
     assert "geometry" in data
     assert "issues" in data
-    assert "program_summary" in data
-    assert "program_issues" in data
 
 
-def test_program_check_can_include_constraints():
-    """Test that program-check can include constraints"""
-    plan_data = {
-        "rooms": [
-            {
-                "id": "small-room",
-                "name": "Small Room",
-                "polygon_mm": [[0, 0], [1000, 0], [1000, 1000], [0, 1000]]
-            }
-        ],
-        "doors": [],
-        "windows": [],
-        "furniture": []
-    }
-    
-    room_program = {
-        "requirements": [],
-        "adjacency_requirements": []
-    }
-    
-    constraints = [
-        {
-            "id": "min_area",
-            "constraint_type": "min_area",
-            "priority": "must",
-            "room_id": "small-room",
-            "min_area_m2": 10.0
-        }
-    ]
-    
-    request_data = {
-        "plan": plan_data,
-        "room_program": room_program,
-        "constraints": constraints
-    }
-    
-    response = client.post("/plans/program-check", json=request_data)
-    assert response.status_code == 200
-    
-    data = response.json()
-    assert "constraint_violations" in data
-    assert "constraints_summary" in data
-    assert len(data["constraint_violations"]) > 0
-
-
-def test_program_check_can_include_project_brief():
-    """Test that program-check can include project_brief"""
+def test_program_check_keeps_all_standard_fields():
+    """Test that program-check keeps all standard validation fields"""
     plan_data = {
         "rooms": [
             {
                 "id": "room1",
-                "name": "Living Room",
-                "polygon_mm": [[0, 0], [4000, 0], [4000, 3000], [0, 3000]]
+                "name": "Room 1",
+                "polygon_mm": [[0, 0], [3000, 0], [3000, 3000], [0, 3000]]
             }
         ],
-        "doors": [],
+        "doors": [
+            {
+                "id": "door-ext",
+                "from_room_id": "room1",
+                "to_room_id": None,
+                "position_mm": [1500, 0],
+                "width_mm": 900
+            }
+        ],
         "windows": [],
         "furniture": []
     }
-    
+
     room_program = {
         "requirements": [],
         "adjacency_requirements": []
     }
-    
-    brief_data = {
-        "project_type": "private_house",
-        "stage": "concept_design",
-        "household": {"adults": 2},
-        "lifestyle": {},
-        "priorities": ["cost_efficiency"],
-        "budget_level": "medium",
-        "construction_method": "traditional",
-        "target_total_area_m2": 120.0,
-        "floors_count": 1
-    }
-    
+
     request_data = {
         "plan": plan_data,
-        "room_program": room_program,
-        "project_brief": brief_data
+        "room_program": room_program
     }
-    
+
     response = client.post("/plans/program-check", json=request_data)
     assert response.status_code == 200
-    
+
     data = response.json()
-    assert "brief_completeness" in data
-    assert "brief_issues" in data
-    assert "brief_plan_issues" in data
+    # All standard fields must be present
+    assert "areas" in data
+    assert "errors" in data
+    assert "warnings" in data
+    assert "connectivity" in data
+    assert "geometry" in data
+    assert "issues" in data
+    assert "program_summary" in data
+    assert "program_issues" in data
