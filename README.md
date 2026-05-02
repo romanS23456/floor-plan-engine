@@ -7,9 +7,11 @@ This is NOT a CAD or visual editor. It's a backend engine that provides structur
 ## What This Project Does
 
 - Defines floor plan data models (rooms, doors, windows, furniture) with precise geometry in millimeters
-- Validates floor plans (polygon validity, door connections, area calculations)
-- Provides REST API for plan validation
+- Validates floor plans (polygon validity, door connections, area calculations, geometric checks)
+- Provides REST API for plan validation with constraint support
 - Uses Shapely for geometric operations
+- Structured `ValidationIssue` format for all issues
+- `PlanningConstraint` model for project requirements
 
 ## Setup
 
@@ -69,118 +71,172 @@ curl -X POST http://localhost:8000/plans/validate \
   }'
 ```
 
-Response:
+Response includes areas, errors, warnings, connectivity, issues, and geometry:
 ```json
 {
-  "areas": {
-    "room-1": 20.0
-  },
+  "areas": {"room-1": 20.0},
   "errors": [],
   "warnings": [],
-  "connectivity": {
-    "entry_room_ids": ["room-1"],
-    "unreachable_room_ids": [],
-    "room_graph": {
-      "nodes": ["room-1"],
-      "edges": []
-    }
-  }
+  "connectivity": {...},
+  "issues": [...],
+  "geometry": {...}
 }
 ```
+
+### Render SVG (Debug Visualization)
+```bash
+curl -X POST http://localhost:8000/plans/render-svg \
+  -H "Content-Type: application/json" \
+  -d '{"rooms": [...], "doors": [...], "windows": [], "furniture": []}'
+```
+
+Returns SVG with `Content-Type: image/svg+xml`.
+
+### Validate with Constraints (MVP 5)
+```bash
+curl -X POST http://localhost:8000/plans/validate-with-constraints \
+  -H "Content-Type: application/json" \
+  -d '{
+    "plan": {
+      "rooms": [{"id": "bedroom", "name": "Bedroom", "polygon_mm": [[0,0],[3000,0],[3000,3000],[0,3000]]}],
+      "doors": [],
+      "windows": [],
+      "furniture": []
+    },
+    "constraints": [
+      {
+        "id": "min_bedroom_area",
+        "constraint_type": "min_area",
+        "priority": "must",
+        "room_id": "bedroom",
+        "min_area_m2": 10.0
+      }
+    ]
+  }'
+```
+
+Returns standard validation fields plus:
+- `constraints`: list of provided constraints
+- `constraint_violations`: structured ValidationIssue objects for violations
+- `constraints_summary`: counts by priority
 
 ## Architecture
 
 - `app/models.py` - Pydantic data models for rooms, doors, windows, furniture, and plans
 - `app/geometry.py` - Geometric calculations using Shapely
-- `app/validation.py` - Plan validation logic (MVP 1 + MVP 2 connectivity)
+- `app/validation.py` - Plan validation logic (MVP 1 + MVP 2 connectivity + MVP 4 geometric)
 - `app/connectivity.py` - Room connectivity analysis (MVP 2)
+- `app/geometric_validation.py` - Geometric validation rules (MVP 4)
+- `app/issues.py` - Structured ValidationIssue format (MVP 4)
+- `app/issue_taxonomy.py` - Centralized issue definitions (MVP 5)
+- `app/constraints.py` - PlanningConstraint model (MVP 5)
+- `app/constraint_validation.py` - Constraint validation service (MVP 5)
 - `app/main.py` - FastAPI application with endpoints
 - `app/sample_data.py` - Sample floor plan data for testing
+- `app/svg_renderer.py` - SVG rendering logic (MVP 3)
 
-## MVP 1 Features ✅
+## Endpoints
 
-- Core Plan JSON structure
-- Area calculation (mm² → m²)
-- Basic validation (polygon points, door references, room connectivity warnings)
-- `/health` endpoint
-- `/plans/validate` endpoint
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/health` | Health check |
+| POST | `/plans/validate` | Validate a floor plan |
+| POST | `/plans/render-svg` | Render floor plan as SVG (debug only) |
+| POST | `/plans/validate-with-constraints` | Validate plan with custom constraints (MVP 5) |
 
-## MVP 2 Features ✅
+## ValidationIssue Format (MVP 4+)
 
-### Connectivity Validation
-- Room type inference from id/name (entry, hall, bathroom, pantry, private, public, service, unknown)
-- Room graph construction using NetworkX
-- Entry room detection (external doors or inferred type)
-- Unreachable room detection
-
-### New Validation Rules
-
-**Errors:**
-- `UNREACHABLE_ROOM`: room cannot be reached from any entry room
-
-**Warnings:**
-- `NO_ENTRY_ROOM`: no entry point detected in the plan
-- `PANTRY_THROUGH_BATHROOM`: pantry only accessible through bathroom
-- `PRIVACY_DIRECT_PUBLIC_PRIVATE`: private room directly connected to public room
-- `PRIVACY_PASS_THROUGH_PRIVATE_ROOM`: private room is a pass-through (degree > 1)
-- `BATHROOM_CONNECTED_TO_PANTRY`: bathroom directly connected to pantry
-
-### Response Format Update
-The `/plans/validate` endpoint now includes an additional `connectivity` block:
+All validation issues use structured format:
 
 ```json
 {
-  "areas": {...},
-  "errors": [...],
-  "warnings": [...],
-  "connectivity": {
-    "entry_room_ids": ["entry-hall"],
-    "unreachable_room_ids": [],
-    "room_graph": {
-      "nodes": ["entry-hall", "kitchen-living"],
-      "edges": [["entry-hall", "kitchen-living"]]
-    }
-  }
+  "id": "issue_code_entity_ids",
+  "code": "ROOM_OVERLAP",
+  "severity": "error",
+  "category": "geometry",
+  "entity_refs": [{"type": "room", "id": "room1"}, {"type": "room", "id": "room2"}],
+  "message": "Rooms overlap by 5.0 m²",
+  "consequence": "Invalid geometry: rooms cannot occupy same space",
+  "confidence": "high",
+  "fixability": "manual_review_required",
+  "source": "validation"
 }
 ```
 
-This is backwards-compatible — old clients can ignore the new `connectivity` field.
+## PlanningConstraint Format (MVP 5)
 
-## MVP 3 Features ✅
+Constraints express project requirements:
 
-### SVG Debug Renderer
-- `POST /plans/render-svg` endpoint returns SVG visualization for debug viewing
-- Renders rooms, doors, windows, furniture with labels and areas
-- Uses `data-id` and `data-entity-type` attributes for programmatic access
-- HTML escapes all text content to prevent XSS
-- External doors styled differently from internal doors
-- Customizable dimensions via query parameters (`?width=1024&height=768`)
-
-### New Endpoint
-```bash
-curl -X POST http://localhost:8000/plans/render-svg \
-  -H "Content-Type: application/json" \
-  -d '{
-    "rooms": [
-      {
-        "id": "room-1",
-        "name": "Living Room",
-        "polygon_mm": [[0, 0], [5000, 0], [5000, 4000], [0, 4000]]
-      }
-    ],
-    "doors": [],
-    "windows": [],
-    "furniture": []
-  }'
+```json
+{
+  "id": "unique_constraint_id",
+  "constraint_type": "min_area",
+  "priority": "must",
+  "description": "Bedroom must be at least 10 m²",
+  "room_id": "bedroom",
+  "min_area_m2": 10.0
+}
 ```
 
-Returns SVG with `Content-Type: image/svg+xml`.
+**Constraint types:**
+- `min_area` — Minimum room area
+- `max_area` — Maximum room area
+- `required_connection` — Rooms must be connected
+- `forbidden_connection` — Rooms must NOT be connected
+- `required_room_type` — Required count of room type
+- `required_access_from_entry` — Room must be accessible from entry
 
-### Architecture Update
-- `app/svg_renderer.py` - SVG rendering logic (MVP 3)
+**Priority levels:**
+- `must` → severity: error
+- `should` → severity: warning
+- `nice_to_have` → severity: info
 
 ---
 
-## Next: MVP 4 — Operations API
+## MVP History
+
+### MVP 1 ✅ Core Plan JSON
+- Core Plan JSON structure
+- Area calculation (mm² → m²)
+- Basic validation (polygon points, door references)
+- `/health` endpoint
+- `/plans/validate` endpoint
+
+### MVP 2 ✅ Connectivity Validation
+- Room type inference from id/name
+- Room graph construction using NetworkX
+- Entry room detection
+- Unreachable room detection
+- Privacy warnings (pantry-through-bathroom, direct public-private, etc.)
+
+### MVP 3 ✅ SVG Debug Renderer
+- `POST /plans/render-svg` endpoint
+- Renders rooms, doors, windows, furniture with labels
+- Uses `data-id` and `data-entity-type` attributes
+- HTML escapes all text content to prevent XSS
+
+### MVP 4 ✅ Geometric Validation + ValidationIssue v1
+- Structured `ValidationIssue` format via `make_issue()`
+- Geometric validation rules:
+  - `ROOM_OVERLAP` — detect overlapping rooms
+  - `FURNITURE_OUTSIDE_ROOM` — furniture outside assigned room
+  - `INVALID_FURNITURE_POLYGON` — invalid furniture geometry
+  - `UNKNOWN_WINDOW_ROOM_REFERENCE` — window references non-existent room
+  - `UNKNOWN_FURNITURE_ROOM_REFERENCE` — furniture references non-existent room
+  - `ROOM_AREA_BELOW_MINIMUM` — room area below minimum for type
+  - `ROUGH_DOOR_FURNITURE_CONFLICT` — door position conflicts with furniture
+- Response includes `issues` and `geometry` blocks
+
+### MVP 5 ✅ Issue Taxonomy + PlanningConstraint v1
+- Centralized issue taxonomy with 25+ issue codes
+- Categories: geometry, references, connectivity, privacy, area, furniture, constraints
+- `PlanningConstraint` model for declarative requirements
+- Priority levels: must, should, nice_to_have
+- New endpoint: `POST /plans/validate-with-constraints`
+- Constraint violations returned as structured ValidationIssue objects
+
+---
+
+## Next: MVP 6 — ProjectBrief Lite
 
 See ROADMAP.md for future development plans.
