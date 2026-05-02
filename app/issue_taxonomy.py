@@ -354,6 +354,48 @@ ISSUE_DEFINITIONS: Dict[str, Dict[str, Any]] = {
         "default_confidence": "medium",
         "default_fixability": "operation_candidate_possible",
     },
+    
+    # MVP 7 - Room Program issues
+    "PROGRAM_MISSING_REQUIRED_ROOM": {
+        "category": "area",
+        "default_severity": "error",
+        "default_message": "Room program requires room type that is missing from plan",
+        "default_consequence": "Plan does not satisfy room program requirements",
+        "default_confidence": "high",
+        "default_fixability": "operation_candidate_possible",
+    },
+    "PROGRAM_AREA_BELOW_MINIMUM": {
+        "category": "area",
+        "default_severity": "warning",
+        "default_message": "Room area is below program minimum",
+        "default_consequence": "Room does not meet program area requirement",
+        "default_confidence": "high",
+        "default_fixability": "operation_candidate_possible",
+    },
+    "PROGRAM_AREA_ABOVE_MAXIMUM": {
+        "category": "area",
+        "default_severity": "warning",
+        "default_message": "Room area exceeds program maximum",
+        "default_consequence": "Room exceeds program area target",
+        "default_confidence": "high",
+        "default_fixability": "operation_candidate_possible",
+    },
+    "PROGRAM_REQUIRED_ADJACENCY_MISSING": {
+        "category": "connectivity",
+        "default_severity": "warning",
+        "default_message": "Room program requires adjacency that is missing",
+        "default_consequence": "Required room relationships not satisfied",
+        "default_confidence": "high",
+        "default_fixability": "operation_candidate_possible",
+    },
+    "PROGRAM_FORBIDDEN_ADJACENCY_PRESENT": {
+        "category": "connectivity",
+        "default_severity": "warning",
+        "default_message": "Room program forbids adjacency that is present",
+        "default_consequence": "Forbidden room relationships present in plan",
+        "default_confidence": "high",
+        "default_fixability": "operation_candidate_possible",
+    },
 }
 
 

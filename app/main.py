@@ -7,9 +7,14 @@ from app.constraints import PlanningConstraint
 from typing import List, Optional
 from pydantic import BaseModel
 
-from app.request_models import ProjectBriefValidationRequest, PlanBriefValidationRequest
+from app.request_models import (
+    ProjectBriefValidationRequest, 
+    PlanBriefValidationRequest,
+    PlanProgramCheckRequest
+)
 from app.brief_validation import validate_project_brief, validate_plan_against_brief
 from app.constraint_validation import validate_constraints
+from app.program_validation import validate_program_against_plan
 
 app = FastAPI(
     title="Floor Plan Engine",
@@ -175,6 +180,29 @@ def validate_plan_with_brief_endpoint(request: PlanBriefValidationRequest):
             else:
                 result["warnings"].append(message)
         
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/plans/program-check")
+def program_check_endpoint(request: PlanProgramCheckRequest):
+    """
+    Validate a floor plan against a room program.
+    
+    MVP 7: Checks if plan satisfies room program requirements:
+    - All required rooms present with correct quantities
+    - Room areas match program minimums/maximums
+    - Required and forbidden adjacencies are satisfied
+    
+    Returns:
+        - program: the input program
+        - program_issues: list of ValidationIssue objects
+        - matched_requirements: list of satisfied requirements
+        - total_area_m2: total project area
+    """
+    try:
+        result = validate_program_against_plan(request.program, request.plan)
         return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

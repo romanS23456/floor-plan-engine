@@ -131,6 +131,8 @@ Returns standard validation fields plus:
 - `app/issue_taxonomy.py` - Centralized issue definitions (MVP 5)
 - `app/constraints.py` - PlanningConstraint model (MVP 5)
 - `app/constraint_validation.py` - Constraint validation service (MVP 5)
+- `app/room_program.py` - RoomProgram and RoomRequirement models (MVP 7)
+- `app/program_validation.py` - Program validation logic (MVP 7)
 - `app/main.py` - FastAPI application with endpoints
 - `app/sample_data.py` - Sample floor plan data for testing
 - `app/svg_renderer.py` - SVG rendering logic (MVP 3)
@@ -145,6 +147,7 @@ Returns standard validation fields plus:
 | POST | `/plans/validate-with-constraints` | Validate plan with custom constraints (MVP 5) |
 | POST | `/briefs/validate` | Validate project brief completeness (MVP 6) |
 | POST | `/plans/validate-with-brief` | Validate plan with project brief context (MVP 6) |
+| POST | `/plans/program-check` | Validate plan against room program (MVP 7) |
 
 ## ProjectBrief Lite (MVP 6)
 
@@ -264,6 +267,139 @@ Constraints express project requirements:
 
 ---
 
+## RoomProgram Lite (MVP 7)
+
+RoomProgram describes the expected room composition and spatial relationships for a project.
+
+### Example RoomProgram
+
+```json
+{
+  "id": "program_001",
+  "name": "3BR Family House",
+  "description": "Program for a 3-bedroom family home",
+  "target_total_area_m2": 120.0,
+  "requirements": [
+    {
+      "id": "req_master_bed",
+      "room_type": "bedroom",
+      "name": "Master Bedroom",
+      "quantity": 1,
+      "required": true,
+      "min_area_m2": 20.0,
+      "max_area_m2": 30.0,
+      "required_adjacencies": ["bathroom"],
+      "forbidden_adjacencies": ["kitchen", "garage"]
+    },
+    {
+      "id": "req_guest_bed",
+      "room_type": "bedroom",
+      "name": "Guest Bedroom",
+      "quantity": 2,
+      "required": true,
+      "min_area_m2": 12.0,
+      "required_adjacencies": ["bathroom"]
+    },
+    {
+      "id": "req_kitchen",
+      "room_type": "kitchen",
+      "quantity": 1,
+      "required": true,
+      "min_area_m2": 12.0,
+      "required_adjacencies": ["dining", "entry"],
+      "forbidden_adjacencies": ["bedroom"]
+    }
+  ]
+}
+```
+
+### POST /plans/program-check
+
+Validates a plan against a room program:
+
+```bash
+curl -X POST http://localhost:8000/plans/program-check \
+  -H "Content-Type: application/json" \
+  -d '{
+    "plan": {...},
+    "program": {...}
+  }'
+```
+
+Response includes:
+- `program` — the input program
+- `program_issues` — list of ValidationIssue objects for violations
+- `matched_requirements` — list of satisfied requirements
+- `total_area_m2` — calculated total project area
+
+Example response:
+
+```json
+{
+  "program": {...},
+  "program_issues": [
+    {
+      "id": "PROGRAM_MISSING_REQUIRED_ROOM_req_garage",
+      "code": "PROGRAM_MISSING_REQUIRED_ROOM",
+      "severity": "error",
+      "category": "area",
+      "entity_refs": [{"type": "program_requirement", "id": "req_garage"}],
+      "message": "Missing 1 required room(s) of type 'garage' (required: 1, found: 0)",
+      "consequence": "Program requires 1 garage(s) but only 0 present",
+      "confidence": "high",
+      "fixability": "operation_candidate_possible",
+      "source": "validation"
+    },
+    {
+      "id": "PROGRAM_AREA_BELOW_MINIMUM_bedroom1_req_master_bed",
+      "code": "PROGRAM_AREA_BELOW_MINIMUM",
+      "severity": "warning",
+      "category": "area",
+      "entity_refs": [
+        {"type": "room", "id": "bedroom1"},
+        {"type": "program_requirement", "id": "req_master_bed"}
+      ],
+      "message": "Room 'Master Bedroom' (bedroom1) area 18.5 m² below minimum 20.0 m²",
+      "consequence": "Room does not meet program minimum area requirement",
+      "confidence": "high",
+      "fixability": "operation_candidate_possible",
+      "source": "validation"
+    }
+  ],
+  "matched_requirements": [
+    {
+      "requirement_id": "req_guest_bed",
+      "room_type": "bedroom",
+      "required": 2,
+      "available": 2
+    },
+    {
+      "requirement_id": "req_kitchen",
+      "room_type": "kitchen",
+      "required": 1,
+      "available": 1
+    }
+  ],
+  "total_area_m2": 125.5
+}
+```
+
+**Note:** RoomProgram v1 focuses on:
+- Room type matching and quantity validation
+- Area range validation
+- Adjacency requirements (required and forbidden connections)
+- Room type inference from room id/name
+
+Room type inference uses simple heuristics:
+- `bedroom` — matches "bed", "master"
+- `bathroom` — matches "bath", "wc", "toilet"
+- `kitchen` — matches "kitchen", "cook"
+- `living` — matches "living", "lounge", "sitting"
+- `dining` — matches "dining", "diningroom"
+- And more — see `infer_room_type()` for full list
+
+---
+
 ## MVP History
 
 ### MVP 1 ✅ Core Plan JSON
@@ -317,12 +453,27 @@ Constraints express project requirements:
   - Guests often without guest facilities hint
   - Cooks often without kitchen hint
 - New endpoints:
-  - `POST /briefs/validate` — validate brief completeness
-  - `POST /plans/validate-with-brief` — combined plan + brief validation
+   - `POST /briefs/validate` — validate brief completeness
+   - `POST /plans/validate-with-brief` — combined plan + brief validation
 - Issue taxonomy extended with 13 brief-related issue codes
+
+### MVP 7 ✅ RoomProgram v1
+
+Implemented:
+- `app/room_program.py` — RoomProgram, RoomRequirement models
+- `app/program_validation.py` — program validation logic
+- Room type inference from room id/name
+- Room quantity validation against program requirements
+- Room area range validation (min/max)
+- Required and forbidden adjacency validation
+- `POST /plans/program-check` endpoint
+- tests/test_room_program.py — 18 tests
+- Issue taxonomy extended with 5 room program issue codes
+- README.md updated with MVP 7 documentation
+- All 89 tests passing
 
 ---
 
-## Next: MVP 7 — RoomProgram v1
+## Next: MVP 8 — SiteContext Lite
 
 See ROADMAP.md for future development plans.
