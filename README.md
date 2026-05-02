@@ -146,6 +146,41 @@ The `/plans/validate` endpoint now includes an additional `connectivity` block:
 
 This is backwards-compatible — old clients can ignore the new `connectivity` field.
 
-## Next: MVP 3 — SVG Debug Renderer
+## MVP 3 Features ✅
+
+### SVG Debug Renderer
+- `POST /plans/render-svg` endpoint returns SVG visualization for debug viewing
+- Renders rooms, doors, windows, furniture with labels and areas
+- Uses `data-id` and `data-entity-type` attributes for programmatic access
+- HTML escapes all text content to prevent XSS
+- External doors styled differently from internal doors
+- Customizable dimensions via query parameters (`?width=1024&height=768`)
+
+### New Endpoint
+```bash
+curl -X POST http://localhost:8000/plans/render-svg \
+  -H "Content-Type: application/json" \
+  -d '{
+    "rooms": [
+      {
+        "id": "room-1",
+        "name": "Living Room",
+        "polygon_mm": [[0, 0], [5000, 0], [5000, 4000], [0, 4000]]
+      }
+    ],
+    "doors": [],
+    "windows": [],
+    "furniture": []
+  }'
+```
+
+Returns SVG with `Content-Type: image/svg+xml`.
+
+### Architecture Update
+- `app/svg_renderer.py` - SVG rendering logic (MVP 3)
+
+---
+
+## Next: MVP 4 — Operations API
 
 See ROADMAP.md for future development plans.

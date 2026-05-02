@@ -1,8 +1,8 @@
 # ROADMAP.md - Floor Plan Engine Development Roadmap
 
-## Current Status: MVP 2 ✅ COMPLETE
+## Current Status: MVP 3 ✅ COMPLETE
 
-**MVP 2 — Connectivity Validation** has been implemented.
+**MVP 3 — SVG Debug Renderer** has been implemented.
 
 ---
 
@@ -57,19 +57,36 @@ Warnings:
 - New `connectivity` field is additive; old clients can ignore it
 - All MVP 1 tests pass without modification
 
+### MVP 3 — SVG Debug Renderer ✅ COMPLETE
+
+**Features:**
+- [x] New module: `app/svg_renderer.py`
+- [x] `render_plan_svg(plan: Plan) -> str` function
+- [x] New endpoint: `POST /plans/render-svg`
+- [x] Renders rooms with labels and calculated areas
+- [x] Renders doors (internal and external with different styles)
+- [x] Renders windows
+- [x] Renders furniture with type attribute
+- [x] Uses `data-id` and `data-entity-type` attributes for programmatic access
+- [x] HTML escapes all text content via `html.escape()` to prevent XSS
+- [x] Customizable dimensions via query parameters (`?width=1024&height=768`)
+- [x] Returns SVG with `Content-Type: image/svg+xml`
+- [x] Tests for SVG renderer module
+- [x] Tests for render-svg endpoint
+- [x] Updated documentation (README.md, AGENTS.md, ROADMAP.md)
+
+**Backwards Compatibility:**
+- All previous endpoints unchanged
+- All MVP 1 and MVP 2 tests pass without modification
+- SVG rendering is additive feature; does not affect existing functionality
+
 ---
 
 ## Future MVPs (Not Yet Implemented)
 
 The following MVPs should be added **one at a time**. Do NOT implement multiple MVPs in a single iteration.
 
-### MVP 3 — SVG Debug Renderer (Next)
-- GET /plans/{id}/export.svg endpoint
-- 2D floor plan visualization for debugging
-- Layer support (walls, furniture, dimensions)
-- Simple SVG output, not a full UI
-
-### MVP 4 — Walls & Boundaries
+### MVP 4 — Walls & Boundaries (Next)
 - Wall entities with thickness, material, start/end points
 - Automatic wall generation from room polygons
 - Wall intersection detection
@@ -125,4 +142,5 @@ The following MVPs should be added **one at a time**. Do NOT implement multiple 
 |---------|------|--------|
 | 0.1.0 (MVP 1) | Current | ✅ Complete |
 | 0.2.0 (MVP 2) | Current | ✅ Complete |
-| 0.3.0 (MVP 3) | Next | ⏳ Planned: SVG Debug Renderer |
+| 0.3.0 (MVP 3) | Current | ✅ Complete: SVG Debug Renderer |
+| 0.4.0 (MVP 4) | Next | ⏳ Planned: Walls & Boundaries |

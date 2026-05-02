@@ -36,6 +36,13 @@
    - Check `connectivity.unreachable_room_ids` for isolated rooms.
    - Review warnings for privacy issues and problematic connections.
 
+5. **SVG Debug Renderer (MVP 3):**
+   - Use `POST /plans/render-svg` to get visual representation for debugging.
+   - SVG uses `data-id` and `data-entity-type` attributes for programmatic access.
+   - All text content is HTML-escaped to prevent XSS.
+   - External doors are styled differently from internal doors.
+   - SVG is for human debug viewing only — structured JSON remains the source of truth.
+
 ## What This Project Is NOT
 
 - ❌ Not a visual editor
