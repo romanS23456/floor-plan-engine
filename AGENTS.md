@@ -60,6 +60,22 @@
    - Constraint violations are returned as `ValidationIssue` objects in `constraint_violations` array.
    - Normative requirements must remain `requires_check` unless verified.
 
+8. **ProjectBrief Lite (MVP 6):**
+   - **ProjectBrief captures project intent and household/lifestyle context.**
+   - ProjectBrief does NOT replace Plan JSON — geometry remains the source of truth.
+   - Use `/briefs/validate` to check brief completeness before plan review.
+   - Use `/plans/validate-with-brief` for combined validation.
+   - Brief conclusions MUST include limitations when data is missing:
+     - Household missing → bedroom and privacy conclusions are limited
+     - Lifestyle missing → scenario-based conclusions are limited
+     - Priorities missing → tradeoff ranking is limited
+     - RoomProgram not available → missing room checks are limited
+     - SiteContext not available → garden/orientation/driveway checks are limited
+   - Do NOT implement full questionnaire, CRM, or client onboarding yet.
+   - Do NOT treat brief assumptions as facts.
+   - Do NOT claim legal/normative compliance based only on ProjectBrief.
+   - Brief issues use category `brief_mismatch` with severities: warning (missing context), info (lifestyle hints).
+
 ## What This Project Is NOT
 
 - ❌ Not a visual editor

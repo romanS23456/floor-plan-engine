@@ -92,11 +92,27 @@ Implemented:
 - POST /plans/validate-with-constraints
 - tests
 
+### MVP 6 — ProjectBrief Lite ✅
+
+Implemented:
+- app/project_brief.py — ProjectBrief, Household, Lifestyle models
+- app/brief_validation.py — validate_project_brief(), validate_plan_against_brief()
+- app/request_models.py — request models for brief endpoints
+- POST /briefs/validate — brief completeness validation
+- POST /plans/validate-with-brief — combined plan + brief validation
+- brief_completeness scoring (0–100) with limitations tracking
+- 13 new brief-related issue codes in issue_taxonomy.py
+- tests/test_project_brief.py — 9 tests
+- tests/test_api.py — 5 new brief endpoint tests
+- README.md updated with MVP 6 documentation
+- AGENTS.md updated with ProjectBrief guidelines
+- All 70 tests passing
+
 ---
 
 ## Current / Next
 
-### MVP 6 — ProjectBrief Lite
+### MVP 7 — RoomProgram v1
 
 Goal:
 Add minimal structured project context so GPT-architect can understand:
