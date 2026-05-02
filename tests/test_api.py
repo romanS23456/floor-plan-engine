@@ -468,3 +468,207 @@ def test_plans_validate_with_brief_with_constraints_returns_violations():
     assert "constraint_violations" in data
     assert "constraints_summary" in data
     assert len(data["constraint_violations"]) > 0
+
+
+def test_plans_program_check_works():
+    """Test that POST /plans/program-check works"""
+    plan_data = {
+        "rooms": [
+            {
+                "id": "bedroom",
+                "name": "Bedroom",
+                "polygon_mm": [[0, 0], [3000, 0], [3000, 3000], [0, 3000]]
+            },
+            {
+                "id": "kitchen",
+                "name": "Kitchen",
+                "polygon_mm": [[3000, 0], [6000, 0], [6000, 3000], [3000, 3000]]
+            }
+        ],
+        "doors": [],
+        "windows": [],
+        "furniture": []
+    }
+    
+    room_program = {
+        "requirements": [
+            {"id": "req1", "room_type": "bedroom"},
+            {"id": "req2", "room_type": "kitchen"}
+        ],
+        "adjacency_requirements": []
+    }
+    
+    request_data = {
+        "plan": plan_data,
+        "room_program": room_program
+    }
+    
+    response = client.post("/plans/program-check", json=request_data)
+    assert response.status_code == 200
+    
+    data = response.json()
+    assert "areas" in data
+    assert "program_summary" in data
+    assert "program_issues" in data
+
+
+def test_plans_program_check_returns_program_summary_and_issues():
+    """Test that program-check returns program_summary and program_issues"""
+    plan_data = {
+        "rooms": [
+            {
+                "id": "bedroom",
+                "name": "Bedroom",
+                "polygon_mm": [[0, 0], [3000, 0], [3000, 3000], [0, 3000]]
+            }
+        ],
+        "doors": [],
+        "windows": [],
+        "furniture": []
+    }
+    
+    room_program = {
+        "requirements": [
+            {"id": "req1", "room_type": "bedroom"},
+            {"id": "req2", "room_type": "bathroom", "required": True}
+        ],
+        "adjacency_requirements": []
+    }
+    
+    request_data = {
+        "plan": plan_data,
+        "room_program": room_program
+    }
+    
+    response = client.post("/plans/program-check", json=request_data)
+    assert response.status_code == 200
+    
+    data = response.json()
+    assert "program_summary" in data
+    assert "program_issues" in data
+    assert "requirements_total" in data["program_summary"]
+    assert "matched_room_types" in data["program_summary"]
+    assert "missing_room_types" in data["program_summary"]
+
+
+def test_plans_program_check_appends_to_issues():
+    """Test that program issues are appended to issues list"""
+    plan_data = {
+        "rooms": [
+            {
+                "id": "bedroom",
+                "name": "Bedroom",
+                "polygon_mm": [[0, 0], [3000, 0], [3000, 3000], [0, 3000]]
+            }
+        ],
+        "doors": [],
+        "windows": [],
+        "furniture": []
+    }
+    
+    room_program = {
+        "requirements": [
+            {"id": "req1", "room_type": "bathroom", "required": True}
+        ],
+        "adjacency_requirements": []
+    }
+    
+    request_data = {
+        "plan": plan_data,
+        "room_program": room_program
+    }
+    
+    response = client.post("/plans/program-check", json=request_data)
+    assert response.status_code == 200
+    
+    data = response.json()
+    # Program issues should be in both program_issues and issues
+    assert len(data["program_issues"]) > 0
+    assert len(data["issues"]) >= len(data["program_issues"])
+
+
+def test_plans_program_check_keeps_normal_validation_fields():
+    """Test that program-check keeps all standard validation fields"""
+    plan_data = {
+        "rooms": [
+            {
+                "id": "room1",
+                "name": "Room 1",
+                "polygon_mm": [[0, 0], [3000, 0], [3000, 3000], [0, 3000]]
+            }
+        ],
+        "doors": [
+            {
+                "id": "door-ext",
+                "from_room_id": "room1",
+                "to_room_id": None,
+                "position_mm": [1500, 0],
+                "width_mm": 900
+            }
+        ],
+        "windows": [],
+        "furniture": []
+    }
+    
+    room_program = {
+        "requirements": [],
+        "adjacency_requirements": []
+    }
+    
+    request_data = {
+        "plan": plan_data,
+        "room_program": room_program
+    }
+    
+    response = client.post("/plans/program-check", json=request_data)
+    assert response.status_code == 200
+    
+    data = response.json()
+    # All standard fields must be present
+    assert "areas" in data
+    assert "errors" in data
+    assert "warnings" in data
+    assert "connectivity" in data
+    assert "geometry" in data
+    assert "issues" in data
+    assert "program_summary" in data
+    assert "program_issues" in data
+
+
+def test_plans_program_check_request_uses_only_plan_and_room_program():
+    """Test that program-check request uses only plan + room_program (no constraints/project_brief)"""
+    plan_data = {
+        "rooms": [
+            {
+                "id": "bedroom",
+                "name": "Bedroom",
+                "polygon_mm": [[0, 0], [3000, 0], [3000, 3000], [0, 3000]]
+            }
+        ],
+        "doors": [],
+        "windows": [],
+        "furniture": []
+    }
+    
+    room_program = {
+        "requirements": [
+            {"id": "req1", "room_type": "bedroom"}
+        ],
+        "adjacency_requirements": []
+    }
+    
+    # Request should only contain plan and room_program
+    request_data = {
+        "plan": plan_data,
+        "room_program": room_program
+    }
+    
+    response = client.post("/plans/program-check", json=request_data)
+    assert response.status_code == 200
+    
+    data = response.json()
+    # Should not have constraint_violations or brief_completeness
+    assert "constraint_violations" not in data
+    assert "brief_completeness" not in data
+    assert "brief_issues" not in data
+    assert "brief_plan_issues" not in data

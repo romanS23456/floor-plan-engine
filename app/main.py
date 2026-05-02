@@ -7,9 +7,11 @@ from app.constraints import PlanningConstraint
 from typing import List, Optional
 from pydantic import BaseModel
 
-from app.request_models import ProjectBriefValidationRequest, PlanBriefValidationRequest
+from app.request_models import ProjectBriefValidationRequest, PlanBriefValidationRequest, PlanProgramValidationRequest
 from app.brief_validation import validate_project_brief, validate_plan_against_brief
 from app.constraint_validation import validate_constraints
+from app.program_validation import validate_room_program
+from app.room_program import RoomProgram
 
 app = FastAPI(
     title="Floor Plan Engine",
@@ -168,6 +170,42 @@ def validate_plan_with_brief_endpoint(request: PlanBriefValidationRequest):
         
         # Mirror brief issues severity to legacy errors/warnings
         for issue in brief_result["brief_issues"] + plan_brief_result["brief_plan_issues"]:
+            severity = issue.get("severity", "warning")
+            message = f"{issue.get('code', 'UNKNOWN')}: {issue.get('message', '')}"
+            if severity == "error":
+                result["errors"].append(message)
+            else:
+                result["warnings"].append(message)
+        
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/plans/program-check")
+def validate_program_endpoint(request: PlanProgramValidationRequest):
+    """
+    Validate a floor plan against a room program.
+    
+    MVP 7: Validates plan against RoomProgram specification.
+    Returns all standard validation fields plus program_summary and program_issues.
+    """
+    try:
+        # Run standard plan validation
+        result = validate_plan(request.plan)
+        
+        # Run program validation
+        program_result = validate_room_program(request.plan, request.room_program)
+        
+        # Add program results to response
+        result["program_summary"] = program_result["program_summary"]
+        result["program_issues"] = program_result["program_issues"]
+        
+        # Append program issues to main issues list
+        result["issues"].extend(program_result["program_issues"])
+        
+        # Mirror program issues severity to legacy errors/warnings
+        for issue in program_result["program_issues"]:
             severity = issue.get("severity", "warning")
             message = f"{issue.get('code', 'UNKNOWN')}: {issue.get('message', '')}"
             if severity == "error":
