@@ -468,3 +468,267 @@ def test_plans_validate_with_brief_with_constraints_returns_violations():
     assert "constraint_violations" in data
     assert "constraints_summary" in data
     assert len(data["constraint_violations"]) > 0
+
+
+# MVP 7 - RoomProgram endpoint tests
+
+def test_program_check_endpoint_works():
+    """Test that POST /plans/program-check works"""
+    plan_data = {
+        "rooms": [
+            {
+                "id": "kitchen-1",
+                "name": "Kitchen",
+                "polygon_mm": [[0, 0], [4000, 0], [4000, 3000], [0, 3000]]
+            },
+            {
+                "id": "living-1",
+                "name": "Living Room",
+                "polygon_mm": [[4000, 0], [8000, 0], [8000, 5000], [4000, 5000]]
+            }
+        ],
+        "doors": [
+            {
+                "id": "door-1",
+                "from_room_id": "kitchen-1",
+                "to_room_id": "living-1",
+                "position_mm": [4000, 1500],
+                "width_mm": 900
+            }
+        ],
+        "windows": [],
+        "furniture": []
+    }
+    
+    room_program = {
+        "requirements": [
+            {"id": "req-kitchen", "room_type": "kitchen", "min_count": 1},
+            {"id": "req-living", "room_type": "public", "min_count": 1}
+        ],
+        "adjacency_requirements": []
+    }
+    
+    request_data = {
+        "plan": plan_data,
+        "room_program": room_program
+    }
+    
+    response = client.post("/plans/program-check", json=request_data)
+    assert response.status_code == 200
+    
+    data = response.json()
+    assert "program_summary" in data
+    assert "program_issues" in data
+
+
+def test_program_check_response_contains_program_summary_and_issues():
+    """Test that program-check response contains program_summary and program_issues"""
+    plan_data = {
+        "rooms": [
+            {
+                "id": "bedroom-1",
+                "name": "Bedroom",
+                "polygon_mm": [[0, 0], [3000, 0], [3000, 3000], [0, 3000]]
+            }
+        ],
+        "doors": [],
+        "windows": [],
+        "furniture": []
+    }
+    
+    room_program = {
+        "requirements": [
+            {"id": "req-missing", "room_type": "kitchen", "required": True, "min_count": 1}
+        ],
+        "adjacency_requirements": []
+    }
+    
+    request_data = {
+        "plan": plan_data,
+        "room_program": room_program
+    }
+    
+    response = client.post("/plans/program-check", json=request_data)
+    assert response.status_code == 200
+    
+    data = response.json()
+    assert "program_summary" in data
+    assert "program_issues" in data
+    assert data["program_summary"]["requirements_total"] == 1
+    assert len(data["program_issues"]) >= 1
+
+
+def test_program_check_appends_program_issues_to_issues():
+    """Test that program issues are appended to the main issues list"""
+    plan_data = {
+        "rooms": [
+            {
+                "id": "tiny-room",
+                "name": "Tiny Room",
+                "polygon_mm": [[0, 0], [1000, 0], [1000, 1000], [0, 1000]]
+            }
+        ],
+        "doors": [],
+        "windows": [],
+        "furniture": []
+    }
+    
+    room_program = {
+        "requirements": [
+            {"id": "req-kitchen", "room_type": "kitchen", "required": True, "min_count": 1}
+        ],
+        "adjacency_requirements": []
+    }
+    
+    request_data = {
+        "plan": plan_data,
+        "room_program": room_program
+    }
+    
+    response = client.post("/plans/program-check", json=request_data)
+    assert response.status_code == 200
+    
+    data = response.json()
+    # Program issues should be in both program_issues and issues
+    assert len(data["program_issues"]) > 0
+    assert len(data["issues"]) >= len(data["program_issues"])
+
+
+def test_program_check_keeps_all_standard_fields():
+    """Test that program-check keeps all standard validation fields"""
+    plan_data = {
+        "rooms": [
+            {
+                "id": "room1",
+                "name": "Room 1",
+                "polygon_mm": [[0, 0], [3000, 0], [3000, 3000], [0, 3000]]
+            }
+        ],
+        "doors": [
+            {
+                "id": "door-ext",
+                "from_room_id": "room1",
+                "to_room_id": None,
+                "position_mm": [1500, 0],
+                "width_mm": 900
+            }
+        ],
+        "windows": [],
+        "furniture": []
+    }
+    
+    room_program = {
+        "requirements": [],
+        "adjacency_requirements": []
+    }
+    
+    request_data = {
+        "plan": plan_data,
+        "room_program": room_program
+    }
+    
+    response = client.post("/plans/program-check", json=request_data)
+    assert response.status_code == 200
+    
+    data = response.json()
+    # All standard fields must be present
+    assert "areas" in data
+    assert "errors" in data
+    assert "warnings" in data
+    assert "connectivity" in data
+    assert "geometry" in data
+    assert "issues" in data
+    assert "program_summary" in data
+    assert "program_issues" in data
+
+
+def test_program_check_can_include_constraints():
+    """Test that program-check can include constraints"""
+    plan_data = {
+        "rooms": [
+            {
+                "id": "small-room",
+                "name": "Small Room",
+                "polygon_mm": [[0, 0], [1000, 0], [1000, 1000], [0, 1000]]
+            }
+        ],
+        "doors": [],
+        "windows": [],
+        "furniture": []
+    }
+    
+    room_program = {
+        "requirements": [],
+        "adjacency_requirements": []
+    }
+    
+    constraints = [
+        {
+            "id": "min_area",
+            "constraint_type": "min_area",
+            "priority": "must",
+            "room_id": "small-room",
+            "min_area_m2": 10.0
+        }
+    ]
+    
+    request_data = {
+        "plan": plan_data,
+        "room_program": room_program,
+        "constraints": constraints
+    }
+    
+    response = client.post("/plans/program-check", json=request_data)
+    assert response.status_code == 200
+    
+    data = response.json()
+    assert "constraint_violations" in data
+    assert "constraints_summary" in data
+    assert len(data["constraint_violations"]) > 0
+
+
+def test_program_check_can_include_project_brief():
+    """Test that program-check can include project_brief"""
+    plan_data = {
+        "rooms": [
+            {
+                "id": "room1",
+                "name": "Living Room",
+                "polygon_mm": [[0, 0], [4000, 0], [4000, 3000], [0, 3000]]
+            }
+        ],
+        "doors": [],
+        "windows": [],
+        "furniture": []
+    }
+    
+    room_program = {
+        "requirements": [],
+        "adjacency_requirements": []
+    }
+    
+    brief_data = {
+        "project_type": "private_house",
+        "stage": "concept_design",
+        "household": {"adults": 2},
+        "lifestyle": {},
+        "priorities": ["cost_efficiency"],
+        "budget_level": "medium",
+        "construction_method": "traditional",
+        "target_total_area_m2": 120.0,
+        "floors_count": 1
+    }
+    
+    request_data = {
+        "plan": plan_data,
+        "room_program": room_program,
+        "project_brief": brief_data
+    }
+    
+    response = client.post("/plans/program-check", json=request_data)
+    assert response.status_code == 200
+    
+    data = response.json()
+    assert "brief_completeness" in data
+    assert "brief_issues" in data
+    assert "brief_plan_issues" in data

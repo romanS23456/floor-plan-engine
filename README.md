@@ -145,6 +145,7 @@ Returns standard validation fields plus:
 | POST | `/plans/validate-with-constraints` | Validate plan with custom constraints (MVP 5) |
 | POST | `/briefs/validate` | Validate project brief completeness (MVP 6) |
 | POST | `/plans/validate-with-brief` | Validate plan with project brief context (MVP 6) |
+| POST | `/plans/program-check` | Validate plan against RoomProgram (MVP 7) |
 
 ## ProjectBrief Lite (MVP 6)
 
@@ -214,6 +215,101 @@ Response includes all standard validation fields plus:
 - `constraints_summary` — if constraints provided
 
 **Note:** Missing brief data limits review confidence. Brief conclusions should always include limitations when data is missing. Do not treat brief assumptions as facts.
+
+## RoomProgram v1 (MVP 7)
+
+RoomProgram describes expected room composition and adjacency intent. It is **project intent, not geometry** — it does not generate rooms or modify the plan.
+
+### Example RoomProgram
+
+```json
+{
+  "name": "3BR Family House",
+  "requirements": [
+    {
+      "id": "req-kitchen",
+      "room_type": "kitchen",
+      "required": true,
+      "min_count": 1,
+      "target_area_m2": 15.0,
+      "min_area_m2": 10.0
+    },
+    {
+      "id": "req-living",
+      "room_type": "public",
+      "required": true,
+      "min_count": 1,
+      "target_area_m2": 30.0
+    },
+    {
+      "id": "req-bedrooms",
+      "room_type": "private",
+      "required": true,
+      "min_count": 3,
+      "max_count": 4,
+      "min_area_m2": 12.0
+    },
+    {
+      "id": "req-bathrooms",
+      "room_type": "bathroom",
+      "required": true,
+      "min_count": 2
+    }
+  ],
+  "adjacency_requirements": [
+    {
+      "id": "adj-kitchen-living",
+      "from_room_type": "kitchen",
+      "to_room_type": "public",
+      "adjacency_type": "direct",
+      "required": true
+    },
+    {
+      "id": "sep-private-service",
+      "from_room_type": "private",
+      "to_room_type": "kitchen",
+      "adjacency_type": "separated",
+      "required": false
+    }
+  ]
+}
+```
+
+### Adjacency Types
+
+- `direct` — Rooms must directly connect via a door
+- `separated` — Rooms must NOT directly connect
+- `near` — Not yet distance-based in MVP 7; returns `PROGRAM_UNSUPPORTED_ADJACENCY_TYPE` info issue
+
+### POST /plans/program-check
+
+Validates a floor plan against a RoomProgram:
+
+```bash
+curl -X POST http://localhost:8000/plans/program-check \
+  -H "Content-Type: application/json" \
+  -d '{
+    "plan": {...},
+    "room_program": {...},
+    "constraints": [...],
+    "project_brief": {...}
+  }'
+```
+
+Response includes all standard validation fields plus:
+- `program_summary.requirements_total` — total requirements checked
+- `program_summary.requirements_checked` — successfully validated
+- `program_summary.issues_count` — number of program issues found
+- `program_summary.matched_room_types` — room types found in plan
+- `program_summary.missing_room_types` — required room types not found
+- `program_summary.unsupported_checks` — unsupported adjacency types (e.g., "near")
+- `program_issues` — list of ValidationIssue objects for program mismatches
+- `constraint_violations` — if constraints provided
+- `brief_completeness` — if project_brief provided
+- `brief_issues` — if project_brief provided
+- `brief_plan_issues` — if project_brief provided
+
+**Note:** RoomProgram is intent only — it does not infer missing rooms as geometry or generate rooms automatically. Distance-based "near" adjacency will be implemented in a future MVP.
 
 ## ValidationIssue Format (MVP 4+)
 
@@ -321,8 +417,39 @@ Constraints express project requirements:
   - `POST /plans/validate-with-brief` — combined plan + brief validation
 - Issue taxonomy extended with 13 brief-related issue codes
 
+### MVP 7 ✅ RoomProgram v1
+- `RoomProgram` model describing expected room composition and adjacency intent
+- `RoomRequirement` model for room type requirements:
+  - required/optional rooms
+  - min/max count
+  - target/min/max area constraints
+- `AdjacencyRequirement` model for adjacency intent:
+  - `direct` — rooms must directly connect
+  - `separated` — rooms must NOT directly connect
+  - `near` — not yet distance-based (returns info issue)
+- Program validation service in `app/program_validation.py`
+- Issue taxonomy extended with 11 program-related issue codes:
+  - `PROGRAM_REQUIRED_ROOM_TYPE_MISSING`
+  - `PROGRAM_TOO_FEW_ROOMS_OF_TYPE`
+  - `PROGRAM_TOO_MANY_ROOMS_OF_TYPE`
+  - `PROGRAM_ROOM_AREA_BELOW_MINIMUM`
+  - `PROGRAM_ROOM_AREA_ABOVE_MAXIMUM`
+  - `PROGRAM_TARGET_AREA_MISMATCH`
+  - `PROGRAM_REQUIRED_ADJACENCY_MISSING`
+  - `PROGRAM_FORBIDDEN_ADJACENCY_EXISTS`
+  - `PROGRAM_UNSUPPORTED_ADJACENCY_TYPE`
+  - `PROGRAM_EMPTY`
+  - `PROGRAM_INVALID_REQUIREMENT`
+- New endpoint:
+  - `POST /plans/program-check` — validate plan against RoomProgram
+- Response includes:
+  - `program_summary` — counts and summary info
+  - `program_issues` — structured ValidationIssue objects
+- RoomProgram is **intent**, not geometry — does not generate rooms
+- Tests: 13 unit tests + 6 API tests
+
 ---
 
-## Next: MVP 7 — RoomProgram v1
+## Next: MVP 8 — SiteContext Lite
 
 See ROADMAP.md for future development plans.

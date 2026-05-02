@@ -7,9 +7,10 @@ from app.constraints import PlanningConstraint
 from typing import List, Optional
 from pydantic import BaseModel
 
-from app.request_models import ProjectBriefValidationRequest, PlanBriefValidationRequest
+from app.request_models import ProjectBriefValidationRequest, PlanBriefValidationRequest, PlanProgramValidationRequest
 from app.brief_validation import validate_project_brief, validate_plan_against_brief
 from app.constraint_validation import validate_constraints
+from app.program_validation import validate_room_program
 
 app = FastAPI(
     title="Floor Plan Engine",
@@ -174,6 +175,101 @@ def validate_plan_with_brief_endpoint(request: PlanBriefValidationRequest):
                 result["errors"].append(message)
             else:
                 result["warnings"].append(message)
+        
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/plans/program-check")
+def program_check_endpoint(request: PlanProgramValidationRequest):
+    """
+    Validate a floor plan against a RoomProgram.
+    
+    MVP 7: Validates plan against room program requirements including:
+    - Required room types and counts
+    - Min/max/target area requirements
+    - Direct adjacency requirements
+    - Separated adjacency requirements
+    
+    Optionally includes:
+    - Constraint validation if constraints provided
+    - Brief validation if project_brief provided
+    
+    Returns:
+        - All standard validation fields (areas, errors, warnings, issues, connectivity, geometry)
+        - program_summary
+        - program_issues
+        - constraints_summary (if constraints provided)
+        - constraint_violations (if constraints provided)
+        - brief_completeness (if project_brief provided)
+        - brief_issues (if project_brief provided)
+        - brief_plan_issues (if project_brief provided)
+    """
+    try:
+        # Run standard plan validation
+        result = validate_plan(request.plan)
+        
+        # Run room program validation
+        program_result = validate_room_program(request.plan, request.room_program)
+        
+        # Add program results to response
+        result["program_summary"] = program_result["program_summary"]
+        result["program_issues"] = program_result["program_issues"]
+        
+        # Append program issues to main issues list
+        result["issues"].extend(program_result["program_issues"])
+        
+        # Mirror program issues severity to legacy errors/warnings
+        for issue in program_result["program_issues"]:
+            severity = issue.get("severity", "warning")
+            message = f"{issue.get('code', 'UNKNOWN')}: {issue.get('message', '')}"
+            if severity == "error":
+                result["errors"].append(message)
+            else:
+                result["warnings"].append(message)
+        
+        # Handle constraints if provided
+        if request.constraints:
+            constraint_result = validate_constraints(request.plan, request.constraints)
+            
+            result["constraints"] = [c.model_dump() for c in request.constraints]
+            result["constraint_violations"] = constraint_result["constraint_violations"]
+            result["constraints_summary"] = constraint_result["constraints_summary"]
+            
+            # Append constraint violations to issues list
+            result["issues"].extend(constraint_result["constraint_violations"])
+            
+            # Mirror constraint violations into legacy errors/warnings
+            for violation in constraint_result["constraint_violations"]:
+                severity = violation.get("severity", "warning")
+                message = f"{violation.get('code', 'UNKNOWN')}: {violation.get('message', '')}"
+                if severity == "error":
+                    result["errors"].append(message)
+                else:
+                    result["warnings"].append(message)
+        
+        # Handle project brief if provided
+        if request.project_brief:
+            brief_result = validate_project_brief(request.project_brief)
+            plan_brief_result = validate_plan_against_brief(request.plan, request.project_brief)
+            
+            result["brief_completeness"] = brief_result["brief_completeness"]
+            result["brief_issues"] = brief_result["brief_issues"]
+            result["brief_plan_issues"] = plan_brief_result["brief_plan_issues"]
+            
+            # Append brief issues to main issues list
+            result["issues"].extend(brief_result["brief_issues"])
+            result["issues"].extend(plan_brief_result["brief_plan_issues"])
+            
+            # Mirror brief issues severity to legacy errors/warnings
+            for issue in brief_result["brief_issues"] + plan_brief_result["brief_plan_issues"]:
+                severity = issue.get("severity", "warning")
+                message = f"{issue.get('code', 'UNKNOWN')}: {issue.get('message', '')}"
+                if severity == "error":
+                    result["errors"].append(message)
+                else:
+                    result["warnings"].append(message)
         
         return result
     except Exception as e:

@@ -108,3 +108,9 @@ When extending this project:
 8. Do not implement door orientation before WallLite/openings (MVP 16)
 9. Geometric validation is required before GPT-architect suggests layout changes
 10. Connectivity graph is part of structured geometry review
+11. RoomProgram describes expected room composition and adjacency intent (MVP 7)
+12. RoomProgram does NOT replace Plan JSON or ProjectBrief — it is additional context
+13. Program validation must produce ValidationIssue objects
+14. Do not infer missing rooms as geometry in MVP 7
+15. Do not generate rooms automatically in MVP 7
+16. Do not implement distance-based near adjacency until later MVP
