@@ -1,64 +1,36 @@
-```
-# Python
+```gitignore
+# Python cache files
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
+*.pyc
+*.pyo
+*.pyd
 
-# Virtual environments
-venv/
-env/
-ENV/
-.venv/
-.env/
-
-# Testing
+# Test cache
+.pytest_cache/
 .coverage
 coverage/
-htmlcov/
-.nox/
-.tox/
-.coverage.*
-.cache
-.pytest_cache/
-.hypothesis/
 
-# IDE
+# Logs
+*.log
+
+# Environment files
+.env
+.env.local
+*.env.*
+
+# Editor/IDE files
 .vscode/
 .idea/
 *.swp
 *.swo
 *.tmp
 
-# Logs
-*.log
-
-# Environment variables
-.env
-.env.local
-*.env.*
-
-# OS
+# OS files
 .DS_Store
 Thumbs.db
 
-# Coverage
-.coverage
-htmlcov/
+# Dependencies
+venv/
+.venv/
+.mypy_cache/
 ```

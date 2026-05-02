@@ -1,128 +1,311 @@
-# ROADMAP.md - Floor Plan Engine Development Roadmap
+# Floor Plan Engine Roadmap
 
-## Current Status: MVP 2 ✅ COMPLETE
+## Product Direction
 
-**MVP 2 — Connectivity Validation** has been implemented.
+Floor Plan Engine is an API-first / operations-first engine for GPT / AI architect.
 
----
+This is not a mouse-first CAD editor.
+Structured Plan JSON is the source of truth.
+SVG, PDF, UI and renders are only representations of structured geometry.
 
-## MVP History
-
-### MVP 1 — Core Plan JSON ✅ COMPLETE
-
-**Features:**
-- [x] Project structure with app/ and tests/ directories
-- [x] Data models: Room, Door, Window, Furniture, Plan
-- [x] Geometry calculations using Shapely (area in m² from mm coordinates)
-- [x] Validation logic (polygon points, door references, connectivity warnings)
-- [x] FastAPI endpoints: GET /health, POST /plans/validate
-- [x] Sample data with 5 rooms (entry hall, kitchen-living, pantry, guest bathroom, bedroom)
-- [x] Tests for geometry, validation, and API
-- [x] Documentation: README.md, AGENTS.md, ROADMAP.md
-
-### MVP 2 — Connectivity Validation ✅ COMPLETE
-
-**Features:**
-- [x] New module: `app/connectivity.py`
-- [x] Room type inference (`infer_room_type`): entry, hall, bathroom, pantry, private, public, service, unknown
-- [x] Room graph construction (`build_room_graph`) using NetworkX
-- [x] Entry room detection (`get_entry_room_ids`): external doors or inferred type
-- [x] Unreachable room detection (`find_unreachable_rooms`)
-- [x] Pantry-through-bathroom detection (`detect_pantry_through_bathroom`)
-- [x] Privacy warnings (`detect_privacy_warnings`):
-  - Direct public-private connections
-  - Bathroom connected to pantry
-  - Pass-through private rooms
-- [x] Updated `validate_plan` to include connectivity analysis
-- [x] New `connectivity` block in response (backwards-compatible)
-- [x] Optional fields in Room model: `room_type`, `privacy_level`
-- [x] Tests for connectivity module and updated validation tests
-- [x] Updated documentation (README.md, AGENTS.md, ROADMAP.md)
-
-**New Validation Rules:**
-
-Errors:
-- `UNREACHABLE_ROOM`: room cannot be reached from any entry room
-
-Warnings:
-- `NO_ENTRY_ROOM`: no entry point detected
-- `PANTRY_THROUGH_BATHROOM`: pantry only accessible through bathroom
-- `PRIVACY_DIRECT_PUBLIC_PRIVATE`: private room directly connected to public room
-- `PRIVACY_PASS_THROUGH_PRIVATE_ROOM`: private room is a pass-through
-- `BATHROOM_CONNECTED_TO_PANTRY`: bathroom directly connected to pantry
-
-**Backwards Compatibility:**
-- Old JSON plans without `room_type` still work (auto-inferred)
-- Old endpoints unchanged (`GET /health`, `POST /plans/validate`)
-- New `connectivity` field is additive; old clients can ignore it
-- All MVP 1 tests pass without modification
+Every MVP must:
+- be small;
+- include tests;
+- preserve backward compatibility;
+- keep existing endpoints working;
+- update README.md;
+- update AGENTS.md;
+- run `python -m pytest -q`;
+- end with an implementation report.
 
 ---
 
-## Future MVPs (Not Yet Implemented)
+## Completed
 
-The following MVPs should be added **one at a time**. Do NOT implement multiple MVPs in a single iteration.
+### MVP 1 — Core Plan JSON ✅
 
-### MVP 3 — SVG Debug Renderer (Next)
-- GET /plans/{id}/export.svg endpoint
-- 2D floor plan visualization for debugging
-- Layer support (walls, furniture, dimensions)
-- Simple SVG output, not a full UI
+Implemented:
+- Plan, Room, Door, Window, Furniture models
+- polygon geometry in millimeters
+- area calculation
+- basic validation
+- FastAPI app
+- GET /health
+- POST /plans/validate
+- tests
 
-### MVP 4 — Walls & Boundaries
-- Wall entities with thickness, material, start/end points
-- Automatic wall generation from room polygons
-- Wall intersection detection
-- Door/window placement on walls
+### MVP 2 — Connectivity Validation ✅
 
-### MVP 5 — Operations API
-- POST /operations/add-room
-- POST /operations/remove-room
-- POST /operations/move-wall
-- POST /operations/add-door
-- Transaction-style operations with rollback support
+Implemented:
+- room graph
+- entry room detection
+- unreachable room detection
+- pantry through bathroom warning
+- simple privacy warnings
+- connectivity block in validation response
+- tests
 
-### MVP 6 — Diff & Snapshots
-- Plan snapshotting (save/restore states)
-- Diff between two plan versions
-- Operation history tracking
+### MVP 3 — SVG Debug Renderer ✅
 
-### MVP 7 — Zoning & Rules
-- Zone definitions (private, public, wet, dry)
-- Building code validation rules
-- Accessibility compliance checks
-- Minimum dimension enforcement
+Implemented:
+- app/svg_renderer.py
+- POST /plans/render-svg
+- rooms
+- labels
+- calculated areas
+- doors
+- windows
+- furniture
+- data-id and data-entity-type attributes
+- SVG as debug visualization only
+- tests
 
-### MVP 8 — 3D Export
-- GET /plans/{id}/export.obj or .glb
-- Basic 3D extrusion from 2D plans
-- Wall heights, door openings, window cutouts
+### MVP 4 — Geometric Validation + ValidationIssue v1 ✅
+
+Implemented:
+- app/issues.py
+- ValidationIssue canonical issue format
+- app/geometric_validation.py
+- room overlap detection
+- furniture outside room detection
+- unknown references for windows/furniture
+- minimum room area warnings
+- rough door/furniture conflict warnings
+- geometry block in validation response
+- issues array in validation response
+- tests
+
+### MVP 5 — Issue Taxonomy + PlanningConstraint v1 ✅
+
+Implemented:
+- app/issue_taxonomy.py
+- centralized issue definitions
+- app/constraints.py
+- PlanningConstraint model
+- app/constraint_validation.py
+- min_area constraint
+- max_area constraint
+- required_connection constraint
+- forbidden_connection constraint
+- required_room_type constraint
+- required_access_from_entry constraint
+- POST /plans/validate-with-constraints
+- tests
 
 ---
 
-## Development Rules
+## Current / Next
 
-1. **One MVP at a time** — Complete and test each MVP before starting the next.
+### MVP 6 — ProjectBrief Lite
 
-2. **Never break existing endpoints** — Maintain backward compatibility. Add new endpoints; don't modify existing ones unless fixing bugs.
+Goal:
+Add minimal structured project context so GPT-architect can understand:
+- project type;
+- design stage;
+- household composition;
+- lifestyle requirements;
+- priorities;
+- missing brief data;
+- limitations of plan review.
 
-3. **Run tests after every change:**
-   ```bash
-   python -m pytest -q
-   ```
+Implement:
+- app/project_brief.py
+- ProjectBrief model
+- Household model
+- Lifestyle model
+- app/brief_validation.py
+- validate_project_brief()
+- validate_plan_against_brief()
+- POST /briefs/validate
+- POST /plans/validate-with-brief
+- brief_completeness block
+- brief_issues
+- brief_plan_issues
+- tests
 
-4. **API-first design** — All features must be accessible via API. UI is secondary (debug only).
-
-5. **Structured geometry is source of truth** — Never lose precision. Store coordinates in mm, calculate areas in m².
-
-6. **Document changes** — Update README.md and this ROADMAP.md after each MVP.
+Do NOT implement in MVP 6:
+- natural language brief parsing
+- automatic constraint generation
+- full questionnaire
+- CRM/client onboarding
+- SiteContext
+- RoomProgram
+- Review endpoint
 
 ---
 
-## Version History
+## Planned
 
-| Version | Date | Status |
-|---------|------|--------|
-| 0.1.0 (MVP 1) | Current | ✅ Complete |
-| 0.2.0 (MVP 2) | Current | ✅ Complete |
-| 0.3.0 (MVP 3) | Next | ⏳ Planned: SVG Debug Renderer |
+### MVP 7 — RoomProgram v1
+
+Goal:
+Describe expected room composition and compare plan against it.
+
+Implement:
+- RoomProgram model
+- required rooms
+- optional rooms
+- target/min/max areas
+- required adjacency
+- forbidden adjacency
+- program match validation
+- missing room issues
+- POST /plans/program-check
+
+### MVP 8 — SiteContext Lite
+
+Goal:
+Add minimal site context for private house review.
+
+Implement:
+- north vector
+- entry side
+- driveway side
+- garden side
+- views
+- neighbor/privacy risks
+- slope optional
+- utilities unknown flags
+- POST /plans/site-check
+
+### MVP 9 — Zoning Tags v1
+
+Goal:
+Add semantic zoning layer.
+
+Implement:
+- public/private/service/wet/dirty/clean tags
+- zoning inference from room types
+- zoning validation
+- POST /plans/infer-zoning
+
+### MVP 10 — Review Endpoint v1
+
+Goal:
+Create the main reasoning endpoint for GPT-architect.
+
+Implement:
+- POST /plans/review
+- summary
+- input_quality
+- critical_issues
+- warnings
+- architectural_risks
+- missing_data
+- markdown_report
+- client_friendly_summary
+
+### MVP 11 — Operation Schema + Dry Run
+
+Goal:
+Define structured plan operations and preview their effects without mutating the plan.
+
+Implement:
+- Operation model
+- OperationCandidate model
+- dry-run endpoint
+- affected entities
+- predicted validation delta
+- precondition failures
+- POST /plans/operations/dry-run
+
+### MVP 12 — Suggested Fixes as Operation Candidates
+
+Goal:
+Connect issues to structured fix suggestions.
+
+Implement:
+- suggested_fixes
+- expected benefits
+- tradeoffs
+- confidence
+- operation_candidate_ids
+- POST /plans/suggest-fixes
+
+### MVP 13 — Snapshots + Diff
+
+Goal:
+Compare plan states safely.
+
+Implement:
+- stateless snapshots
+- before/after diff
+- added/deleted/updated entities
+- issue delta
+- area delta
+- POST /plans/snapshots
+- POST /plans/diff
+
+### MVP 14 — Safe Apply Operations
+
+Goal:
+Apply only safe structured operations.
+
+Implement:
+- POST /plans/operations/apply
+- validation after apply
+- new plan version/snapshot
+- no destructive mutation without explicit apply
+
+### MVP 15 — WallLite / Opening Model
+
+Goal:
+Introduce minimal wall/opening layer without becoming CAD.
+
+Implement:
+- WallLite
+- Opening
+- is_exterior
+- adjacent_room_ids
+- thickness_mm optional
+- structural_role unknown/load_bearing/partition/exterior
+- POST /plans/derive-walls
+- POST /plans/validate-walls
+
+### MVP 16 — Door Orientation + Clearance v1
+
+Goal:
+Validate door swing and clearance after WallLite exists.
+
+Implement:
+- opens_into_room_id
+- hinge_side
+- swing_direction
+- approximate swing clearance
+- door/furniture conflicts with better geometry
+
+---
+
+## Later
+
+- Dimensions v1
+- Corridor and circulation analysis
+- Variant manager
+- Zoning comparison
+- Schematic plan generator
+- Pattern library
+- Constructability scoring
+- Site/roof/facade helpers
+- Reports
+- PDF export
+- DXF export
+- 3D scene foundation
+- Render prompt builder
+
+---
+
+## Explicitly Not Now
+
+Do not implement yet:
+- drag-and-drop CAD editor
+- BIM/Revit clone
+- automatic full house generator
+- beautiful render pipeline
+- 3D visualization
+- VR
+- mobile app
+- real-time collaboration
+- final cost estimation
+- legal/normative approval engine
+- door orientation before WallLite
+- wall model before MVP 15

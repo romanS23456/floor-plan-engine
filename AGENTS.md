@@ -14,7 +14,7 @@
    - Receive natural language description from user
    - Generate/modify Plan JSON structure
    - POST to `/plans/validate` endpoint
-   - Parse validation results (areas, errors, warnings, connectivity)
+   - Parse validation results (areas, errors, warnings, connectivity, issues, geometry)
    - Iterate until plan is valid
 
 2. **Data Format:**
@@ -36,12 +36,38 @@
    - Check `connectivity.unreachable_room_ids` for isolated rooms.
    - Review warnings for privacy issues and problematic connections.
 
+5. **SVG Debug Renderer (MVP 3):**
+   - Use `POST /plans/render-svg` to get visual representation for debugging.
+   - SVG uses `data-id` and `data-entity-type` attributes for programmatic access.
+   - All text content is HTML-escaped to prevent XSS.
+   - External doors are styled differently from internal doors.
+   - SVG is for human debug viewing only — structured JSON remains the source of truth.
+
+6. **ValidationIssue Format (MVP 4):**
+   - **ValidationIssue is the canonical issue format for future review, fixes and operations.**
+   - All issues (geometric, connectivity, constraints) are returned as structured `ValidationIssue` objects.
+   - Each issue has: `id`, `code`, `severity`, `category`, `entity_refs`, `message`, `consequence`, `confidence`, `fixability`, `source`.
+   - Legacy `errors`/`warnings` arrays remain for backwards compatibility.
+   - Use `issues` array for structured processing by AI agents.
+   - Issue categories: `geometry`, `references`, `connectivity`, `privacy`, `area`, `furniture`, `openings`, `constraints`, `unknown`.
+
+7. **PlanningConstraint (MVP 5):**
+   - **PlanningConstraint is the first structured way to express project requirements.**
+   - Constraints describe project intent, not legal code.
+   - Use `/plans/validate-with-constraints` endpoint to validate plan against constraints.
+   - Constraint types: `min_area`, `max_area`, `required_connection`, `forbidden_connection`, `required_room_type`, `required_access_from_entry`.
+   - Priority levels: `must` (error), `should` (warning), `nice_to_have` (info).
+   - Constraint violations are returned as `ValidationIssue` objects in `constraint_violations` array.
+   - Normative requirements must remain `requires_check` unless verified.
+
 ## What This Project Is NOT
 
 - ❌ Not a visual editor
 - ❌ Not a CAD application
 - ❌ Not a drag-and-drop tool
 - ❌ Not a 3D modeling software
+- ❌ Not a wall model yet (before MVP 15)
+- ❌ Not a door orientation system yet (before MVP 15/16)
 
 ## What This Project IS
 
@@ -50,6 +76,8 @@
 - ✅ Operations-first design (add room, remove wall, move door)
 - ✅ Source of truth for floor plan data
 - ✅ Connectivity analysis for spatial reasoning
+- ✅ Canonical issue format for review and fixes
+- ✅ Constraint-based requirement validation
 
 ## Adding New Features
 
@@ -59,3 +87,8 @@ When extending this project:
 3. Don't break existing endpoints
 4. Add validation rules before new features
 5. Run `python -m pytest -q` after each change
+6. Update README.md, AGENTS.md, ROADMAP.md
+7. Do not implement wall model before WallLite MVP (MVP 15)
+8. Do not implement door orientation before WallLite/openings (MVP 16)
+9. Geometric validation is required before GPT-architect suggests layout changes
+10. Connectivity graph is part of structured geometry review
