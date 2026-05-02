@@ -7,6 +7,10 @@ from app.constraints import PlanningConstraint
 from typing import List, Optional
 from pydantic import BaseModel
 
+from app.request_models import ProjectBriefValidationRequest, PlanBriefValidationRequest
+from app.brief_validation import validate_project_brief, validate_plan_against_brief
+from app.constraint_validation import validate_constraints
+
 app = FastAPI(
     title="Floor Plan Engine",
     description="API-first backend for GPT/AI architect - structured geometry is the source of truth",
@@ -68,7 +72,6 @@ def validate_with_constraints_endpoint(request: PlanConstraintValidationRequest)
         result = validate_plan(request.plan)
         
         # Run constraint validation
-        from app.constraint_validation import validate_constraints
         constraint_result = validate_constraints(request.plan, request.constraints)
         
         # Add constraint results to response
@@ -86,6 +89,90 @@ def validate_with_constraints_endpoint(request: PlanConstraintValidationRequest)
             if severity == "error":
                 result["errors"].append(message)
             else:  # warning or info
+                result["warnings"].append(message)
+        
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/briefs/validate")
+def validate_brief_endpoint(request: ProjectBriefValidationRequest):
+    """
+    Validate a project brief and return completeness assessment.
+    
+    MVP 6: Returns brief_completeness score and brief_issues.
+    Does not require a plan - validates only the brief context.
+    """
+    try:
+        result = validate_project_brief(request.project_brief)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/plans/validate-with-brief")
+def validate_plan_with_brief_endpoint(request: PlanBriefValidationRequest):
+    """
+    Validate a floor plan with project brief context.
+    
+    MVP 6: Combines plan validation, brief validation, and plan-against-brief checks.
+    Optionally includes constraint validation if constraints are provided.
+    
+    Returns:
+        - All standard validation fields (areas, errors, warnings, issues, connectivity, geometry)
+        - brief_completeness
+        - brief_issues
+        - brief_plan_issues
+        - constraints_summary (if constraints provided)
+        - constraint_violations (if constraints provided)
+    """
+    try:
+        # Run standard plan validation
+        result = validate_plan(request.plan)
+        
+        # Run brief validation
+        brief_result = validate_project_brief(request.project_brief)
+        
+        # Run plan-against-brief validation
+        plan_brief_result = validate_plan_against_brief(request.plan, request.project_brief)
+        
+        # Add brief results to response
+        result["brief_completeness"] = brief_result["brief_completeness"]
+        result["brief_issues"] = brief_result["brief_issues"]
+        result["brief_plan_issues"] = plan_brief_result["brief_plan_issues"]
+        
+        # Append brief issues and plan-brief issues to main issues list
+        result["issues"].extend(brief_result["brief_issues"])
+        result["issues"].extend(plan_brief_result["brief_plan_issues"])
+        
+        # Handle constraints if provided
+        if request.constraints:
+            constraint_result = validate_constraints(request.plan, request.constraints)
+            
+            result["constraints"] = [c.model_dump() for c in request.constraints]
+            result["constraint_violations"] = constraint_result["constraint_violations"]
+            result["constraints_summary"] = constraint_result["constraints_summary"]
+            
+            # Append constraint violations to issues list
+            result["issues"].extend(constraint_result["constraint_violations"])
+            
+            # Mirror constraint violations into legacy errors/warnings
+            for violation in constraint_result["constraint_violations"]:
+                severity = violation.get("severity", "warning")
+                message = f"{violation.get('code', 'UNKNOWN')}: {violation.get('message', '')}"
+                if severity == "error":
+                    result["errors"].append(message)
+                else:
+                    result["warnings"].append(message)
+        
+        # Mirror brief issues severity to legacy errors/warnings
+        for issue in brief_result["brief_issues"] + plan_brief_result["brief_plan_issues"]:
+            severity = issue.get("severity", "warning")
+            message = f"{issue.get('code', 'UNKNOWN')}: {issue.get('message', '')}"
+            if severity == "error":
+                result["errors"].append(message)
+            else:
                 result["warnings"].append(message)
         
         return result

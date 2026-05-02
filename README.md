@@ -143,6 +143,77 @@ Returns standard validation fields plus:
 | POST | `/plans/validate` | Validate a floor plan |
 | POST | `/plans/render-svg` | Render floor plan as SVG (debug only) |
 | POST | `/plans/validate-with-constraints` | Validate plan with custom constraints (MVP 5) |
+| POST | `/briefs/validate` | Validate project brief completeness (MVP 6) |
+| POST | `/plans/validate-with-brief` | Validate plan with project brief context (MVP 6) |
+
+## ProjectBrief Lite (MVP 6)
+
+ProjectBrief captures project intent and household/lifestyle context. It does NOT replace Plan JSON — geometry remains the source of truth.
+
+### Example ProjectBrief
+
+```json
+{
+  "project_type": "private_house",
+  "stage": "concept_design",
+  "household": {
+    "adults": 2,
+    "children": 1,
+    "guests_often": true
+  },
+  "lifestyle": {
+    "cooks_often": true,
+    "works_from_home": false,
+    "needs_guest_room": true
+  },
+  "priorities": ["natural_light", "cost_efficiency"],
+  "budget_level": "medium",
+  "construction_method": "traditional",
+  "target_total_area_m2": 120.0,
+  "floors_count": 1
+}
+```
+
+### POST /briefs/validate
+
+Validates a project brief and returns completeness assessment:
+
+```bash
+curl -X POST http://localhost:8000/briefs/validate \
+  -H "Content-Type: application/json" \
+  -d '{"project_brief": {...}}'
+```
+
+Response includes:
+- `brief_completeness.score` — 0 to 100
+- `brief_completeness.missing_fields` — list of missing fields
+- `brief_completeness.unknown_fields` — fields with "unknown" values
+- `brief_completeness.is_ready_for_plan_review` — true if score >= 60
+- `brief_completeness.limitations` — review limitations due to missing data
+- `brief_issues` — list of ValidationIssue objects
+
+### POST /plans/validate-with-brief
+
+Combines plan validation with brief context:
+
+```bash
+curl -X POST http://localhost:8000/plans/validate-with-brief \
+  -H "Content-Type: application/json" \
+  -d '{
+    "plan": {...},
+    "project_brief": {...},
+    "constraints": [...]
+  }'
+```
+
+Response includes all standard validation fields plus:
+- `brief_completeness` — brief scoring and limitations
+- `brief_issues` — issues from brief validation
+- `brief_plan_issues` — heuristic mismatches between plan and brief
+- `constraint_violations` — if constraints provided
+- `constraints_summary` — if constraints provided
+
+**Note:** Missing brief data limits review confidence. Brief conclusions should always include limitations when data is missing. Do not treat brief assumptions as facts.
 
 ## ValidationIssue Format (MVP 4+)
 
@@ -235,8 +306,23 @@ Constraints express project requirements:
 - New endpoint: `POST /plans/validate-with-constraints`
 - Constraint violations returned as structured ValidationIssue objects
 
+### MVP 6 ✅ ProjectBrief Lite
+- `ProjectBrief` model capturing project intent and context
+- `Household` and `Lifestyle` sub-models
+- Brief completeness scoring (0–100)
+- Limitations tracking when data is missing
+- Plan-against-brief heuristic checks:
+  - Unsupported project type warning
+  - Work-from-home without workspace hint
+  - Guests often without guest facilities hint
+  - Cooks often without kitchen hint
+- New endpoints:
+  - `POST /briefs/validate` — validate brief completeness
+  - `POST /plans/validate-with-brief` — combined plan + brief validation
+- Issue taxonomy extended with 13 brief-related issue codes
+
 ---
 
-## Next: MVP 6 — ProjectBrief Lite
+## Next: MVP 7 — RoomProgram v1
 
 See ROADMAP.md for future development plans.
