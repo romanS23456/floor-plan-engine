@@ -468,6 +468,7 @@ def test_plans_validate_with_brief_with_constraints_returns_violations():
     assert "constraint_violations" in data
     assert "constraints_summary" in data
     assert len(data["constraint_violations"]) > 0
+
 def test_plans_program_check_endpoint_works():
     """Test that POST /plans/program-check works."""
     plan_data = {
