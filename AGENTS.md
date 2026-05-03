@@ -49,7 +49,7 @@
    - Each issue has: `id`, `code`, `severity`, `category`, `entity_refs`, `message`, `consequence`, `confidence`, `fixability`, `source`.
    - Legacy `errors`/`warnings` arrays remain for backwards compatibility.
    - Use `issues` array for structured processing by AI agents.
-   - Issue categories: `geometry`, `references`, `connectivity`, `privacy`, `area`, `furniture`, `openings`, `constraints`, `unknown`.
+   - Issue categories: `geometry`, `references`, `connectivity`, `privacy`, `area`, `furniture`, `openings`, `constraints`, `brief_mismatch`, `site`, `zoning`, `operations`, `unknown`.
 
 7. **PlanningConstraint (MVP 5):**
    - **PlanningConstraint is the first structured way to express project requirements.**
@@ -76,6 +76,16 @@
    - Do NOT claim legal/normative compliance based only on ProjectBrief.
    - Brief issues use category `brief_mismatch` with severities: warning (missing context), info (lifestyle hints).
 
+9. **RoomProgram v1 (MVP 7):**
+   - **RoomProgram describes expected room composition and checks the actual Plan against it.**
+   - Use `/plans/program-check` when the user has a target room list, required counts, area ranges, or adjacency rules.
+   - RoomProgram does NOT generate rooms and does NOT parse natural language; it only validates structured requirements.
+   - `RoomRequirement` supports required/optional room types, quantity, target/min/max area, required adjacencies, and forbidden adjacencies.
+   - Program validation returns `program_issues`, `matched_requirements`, `room_types`, and `total_area_m2`.
+   - Program issues use `PROGRAM_*` codes and must remain structured `ValidationIssue` objects.
+   - Treat inferred room types as heuristic, not as verified facts. Prefer explicit `room_type` when available.
+   - Do NOT implement SiteContext, Zoning, Review endpoint, Operations API, Wall model, or UI in MVP 7.
+
 ## What This Project Is NOT
 
 - ❌ Not a visual editor
@@ -94,6 +104,8 @@
 - ✅ Connectivity analysis for spatial reasoning
 - ✅ Canonical issue format for review and fixes
 - ✅ Constraint-based requirement validation
+- ✅ Brief-aware plan validation
+- ✅ Room program validation for required rooms, areas and adjacencies
 
 ## Adding New Features
 
@@ -108,3 +120,4 @@ When extending this project:
 8. Do not implement door orientation before WallLite/openings (MVP 16)
 9. Geometric validation is required before GPT-architect suggests layout changes
 10. Connectivity graph is part of structured geometry review
+11. RoomProgram validation must stay deterministic and structured; no natural-language parsing in MVP 7

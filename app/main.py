@@ -7,9 +7,14 @@ from app.constraints import PlanningConstraint
 from typing import List, Optional
 from pydantic import BaseModel
 
-from app.request_models import ProjectBriefValidationRequest, PlanBriefValidationRequest
+from app.request_models import (
+    ProjectBriefValidationRequest,
+    PlanBriefValidationRequest,
+    PlanProgramCheckRequest,
+)
 from app.brief_validation import validate_project_brief, validate_plan_against_brief
 from app.constraint_validation import validate_constraints
+from app.program_validation import validate_program_against_plan
 
 app = FastAPI(
     title="Floor Plan Engine",
@@ -179,6 +184,22 @@ def validate_plan_with_brief_endpoint(request: PlanBriefValidationRequest):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+@app.post("/plans/program-check")
+def program_check_endpoint(request: PlanProgramCheckRequest):
+    """
+    Validate a floor plan against a structured RoomProgram.
+
+    MVP 7:
+    - required and optional room requirements
+    - required room quantity checks
+    - min/max area checks
+    - required adjacency checks
+    - forbidden adjacency checks
+    """
+    try:
+        return validate_program_against_plan(request.program, request.plan)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn

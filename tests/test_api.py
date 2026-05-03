@@ -468,3 +468,71 @@ def test_plans_validate_with_brief_with_constraints_returns_violations():
     assert "constraint_violations" in data
     assert "constraints_summary" in data
     assert len(data["constraint_violations"]) > 0
+
+def test_plans_program_check_endpoint_works():
+    """Test that POST /plans/program-check works."""
+    plan_data = {
+        "rooms": [
+            {
+                "id": "bedroom-1",
+                "name": "Bedroom",
+                "room_type": "bedroom",
+                "polygon_mm": [[0, 0], [4000, 0], [4000, 3000], [0, 3000]],
+            },
+            {
+                "id": "bathroom-1",
+                "name": "Bathroom",
+                "room_type": "bathroom",
+                "polygon_mm": [[4000, 0], [6000, 0], [6000, 3000], [4000, 3000]],
+            },
+        ],
+        "doors": [
+            {
+                "id": "door-1",
+                "from_room_id": "bedroom-1",
+                "to_room_id": "bathroom-1",
+                "position_mm": [4000, 1500],
+                "width_mm": 900,
+            }
+        ],
+        "windows": [],
+        "furniture": [],
+    }
+
+    program_data = {
+        "id": "program-1",
+        "name": "Basic program",
+        "requirements": [
+            {
+                "id": "req-bedroom",
+                "room_type": "bedroom",
+                "quantity": 1,
+                "required": True,
+            },
+            {
+                "id": "req-bathroom",
+                "room_type": "bathroom",
+                "quantity": 1,
+                "required": True,
+            },
+        ],
+    }
+
+    response = client.post(
+        "/plans/program-check",
+        json={
+            "plan": plan_data,
+            "program": program_data,
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+    assert "program" in data
+    assert "program_issues" in data
+    assert "matched_requirements" in data
+    assert "room_types" in data
+    assert "total_area_m2" in data
+    assert data["program"]["id"] == "program-1"
+    assert data["program_issues"] == []

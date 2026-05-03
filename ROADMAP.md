@@ -15,6 +15,7 @@ Every MVP must:
 - keep existing endpoints working;
 - update README.md;
 - update AGENTS.md;
+- update ROADMAP.md;
 - run `python -m pytest -q`;
 - end with an implementation report.
 
@@ -95,34 +96,28 @@ Implemented:
 ### MVP 6 — ProjectBrief Lite ✅
 
 Implemented:
-- app/project_brief.py — ProjectBrief, Household, Lifestyle models
+- app/project_brief.py — ProjectBrief, Household, and Lifestyle models
 - app/brief_validation.py — validate_project_brief(), validate_plan_against_brief()
 - app/request_models.py — request models for brief endpoints
 - POST /briefs/validate — brief completeness validation
 - POST /plans/validate-with-brief — combined plan + brief validation
 - brief_completeness scoring (0–100) with limitations tracking
 - 13 new brief-related issue codes in issue_taxonomy.py
-- tests/test_project_brief.py — 9 tests
-- tests/test_api.py — 5 new brief endpoint tests
+- tests/test_project_brief.py
+- tests/test_api.py brief endpoint tests
 - README.md updated with MVP 6 documentation
 - AGENTS.md updated with ProjectBrief guidelines
-- All 70 tests passing
 
----
+### MVP 7 — RoomProgram v1 ✅
 
-## Current / Next
-
-### MVP 7 — RoomProgram v1
-
-Goal:
-Describe expected room composition and compare the actual Plan against it.
-
-Implement:
+Implemented:
 - app/room_program.py
 - RoomProgram model
 - RoomRequirement model
+- room type extraction from explicit `room_type` or deterministic id/name inference
 - required rooms
 - optional rooms
+- required room quantity checks
 - target/min/max areas
 - required adjacency
 - forbidden adjacency
@@ -131,21 +126,14 @@ Implement:
 - area mismatch issues
 - adjacency mismatch issues
 - POST /plans/program-check
-- tests
-
-Do NOT implement in MVP 7:
-- natural language room program parsing
-- automatic room generation
-- SiteContext
-- Zoning
-- Review endpoint
-- Operations API
-- Wall model
-- UI
+- tests/test_room_program.py
+- tests/test_api.py program endpoint test
+- README.md updated with MVP 7 documentation
+- AGENTS.md updated with RoomProgram guidelines
 
 ---
 
-## Planned
+## Current / Next
 
 ### MVP 8 — SiteContext Lite
 
@@ -153,6 +141,8 @@ Goal:
 Add minimal site context for private house review.
 
 Implement:
+- app/site_context.py
+- SiteContext model
 - north vector
 - entry side
 - driveway side
@@ -162,6 +152,22 @@ Implement:
 - slope optional
 - utilities unknown flags
 - POST /plans/site-check
+- tests
+
+Do NOT implement in MVP 8:
+- full geodata integration
+- GIS
+- legal zoning engine
+- sun path simulation
+- automatic site plan generation
+- Review endpoint
+- Operations API
+- Wall model
+- UI
+
+---
+
+## Planned
 
 ### MVP 9 — Zoning Tags v1
 
