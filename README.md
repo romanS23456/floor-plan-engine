@@ -12,6 +12,7 @@ This is NOT a CAD or visual editor. It's a backend engine that provides structur
 - Uses Shapely for geometric operations
 - Structured `ValidationIssue` format for all issues
 - `PlanningConstraint` model for project requirements
+- `RoomProgram` model for checking required rooms, areas, and adjacencies
 
 ## Setup
 
@@ -28,6 +29,7 @@ python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 Or run directly:
+
 ```bash
 python -m app.main
 ```
@@ -41,11 +43,13 @@ python -m pytest -q
 ## Example curl
 
 ### Health Check
+
 ```bash
 curl http://localhost:8000/health
 ```
 
 ### Validate a Plan
+
 ```bash
 curl -X POST http://localhost:8000/plans/validate \
   -H "Content-Type: application/json" \
@@ -72,33 +76,42 @@ curl -X POST http://localhost:8000/plans/validate \
 ```
 
 Response includes areas, errors, warnings, connectivity, issues, and geometry:
+
 ```json
 {
   "areas": {"room-1": 20.0},
   "errors": [],
   "warnings": [],
-  "connectivity": {...},
-  "issues": [...],
-  "geometry": {...}
+  "connectivity": {},
+  "issues": [],
+  "geometry": {}
 }
 ```
 
 ### Render SVG (Debug Visualization)
+
 ```bash
 curl -X POST http://localhost:8000/plans/render-svg \
   -H "Content-Type: application/json" \
-  -d '{"rooms": [...], "doors": [...], "windows": [], "furniture": []}'
+  -d '{"rooms": [], "doors": [], "windows": [], "furniture": []}'
 ```
 
 Returns SVG with `Content-Type: image/svg+xml`.
 
 ### Validate with Constraints (MVP 5)
+
 ```bash
 curl -X POST http://localhost:8000/plans/validate-with-constraints \
   -H "Content-Type: application/json" \
   -d '{
     "plan": {
-      "rooms": [{"id": "bedroom", "name": "Bedroom", "polygon_mm": [[0,0],[3000,0],[3000,3000],[0,3000]]}],
+      "rooms": [
+        {
+          "id": "bedroom",
+          "name": "Bedroom",
+          "polygon_mm": [[0,0],[3000,0],[3000,3000],[0,3000]]
+        }
+      ],
       "doors": [],
       "windows": [],
       "furniture": []
@@ -116,6 +129,7 @@ curl -X POST http://localhost:8000/plans/validate-with-constraints \
 ```
 
 Returns standard validation fields plus:
+
 - `constraints`: list of provided constraints
 - `constraint_violations`: structured ValidationIssue objects for violations
 - `constraints_summary`: counts by priority
@@ -131,6 +145,8 @@ Returns standard validation fields plus:
 - `app/issue_taxonomy.py` - Centralized issue definitions (MVP 5)
 - `app/constraints.py` - PlanningConstraint model (MVP 5)
 - `app/constraint_validation.py` - Constraint validation service (MVP 5)
+- `app/room_program.py` - RoomProgram and RoomRequirement models (MVP 7)
+- `app/program_validation.py` - RoomProgram validation service (MVP 7)
 - `app/main.py` - FastAPI application with endpoints
 - `app/sample_data.py` - Sample floor plan data for testing
 - `app/svg_renderer.py` - SVG rendering logic (MVP 3)
@@ -145,6 +161,7 @@ Returns standard validation fields plus:
 | POST | `/plans/validate-with-constraints` | Validate plan with custom constraints (MVP 5) |
 | POST | `/briefs/validate` | Validate project brief completeness (MVP 6) |
 | POST | `/plans/validate-with-brief` | Validate plan with project brief context (MVP 6) |
+| POST | `/plans/program-check` | Validate plan against structured RoomProgram (MVP 7) |
 
 ## ProjectBrief Lite (MVP 6)
 
@@ -181,10 +198,11 @@ Validates a project brief and returns completeness assessment:
 ```bash
 curl -X POST http://localhost:8000/briefs/validate \
   -H "Content-Type: application/json" \
-  -d '{"project_brief": {...}}'
+  -d '{"project_brief": {}}'
 ```
 
 Response includes:
+
 - `brief_completeness.score` — 0 to 100
 - `brief_completeness.missing_fields` — list of missing fields
 - `brief_completeness.unknown_fields` — fields with "unknown" values
@@ -200,13 +218,14 @@ Combines plan validation with brief context:
 curl -X POST http://localhost:8000/plans/validate-with-brief \
   -H "Content-Type: application/json" \
   -d '{
-    "plan": {...},
-    "project_brief": {...},
-    "constraints": [...]
+    "plan": {},
+    "project_brief": {},
+    "constraints": []
   }'
 ```
 
 Response includes all standard validation fields plus:
+
 - `brief_completeness` — brief scoring and limitations
 - `brief_issues` — issues from brief validation
 - `brief_plan_issues` — heuristic mismatches between plan and brief
@@ -214,6 +233,84 @@ Response includes all standard validation fields plus:
 - `constraints_summary` — if constraints provided
 
 **Note:** Missing brief data limits review confidence. Brief conclusions should always include limitations when data is missing. Do not treat brief assumptions as facts.
+
+## RoomProgram v1 (MVP 7)
+
+RoomProgram describes expected room composition and compares the actual `Plan` against it.
+
+It is a structured program check, not a natural-language parser and not an automatic room generator.
+
+### Example RoomProgram
+
+```json
+{
+  "id": "program-1",
+  "name": "Basic private house program",
+  "target_total_area_m2": 120.0,
+  "requirements": [
+    {
+      "id": "req-bedroom",
+      "room_type": "bedroom",
+      "quantity": 3,
+      "required": true,
+      "min_area_m2": 10.0,
+      "max_area_m2": 18.0
+    },
+    {
+      "id": "req-kitchen",
+      "room_type": "kitchen",
+      "quantity": 1,
+      "required": true,
+      "required_adjacencies": ["living"]
+    },
+    {
+      "id": "req-bathroom",
+      "room_type": "bathroom",
+      "quantity": 2,
+      "required": true,
+      "forbidden_adjacencies": ["kitchen"]
+    }
+  ]
+}
+```
+
+### POST /plans/program-check
+
+Validates a plan against a structured RoomProgram:
+
+```bash
+curl -X POST http://localhost:8000/plans/program-check \
+  -H "Content-Type: application/json" \
+  -d '{
+    "plan": {},
+    "program": {}
+  }'
+```
+
+Response includes:
+
+- `program` — submitted RoomProgram
+- `program_issues` — structured ValidationIssue objects for program mismatches
+- `matched_requirements` — per-requirement match summary
+- `room_types` — inferred room type map from actual plan
+- `total_area_m2` — total calculated plan area
+
+RoomProgram checks:
+
+- missing required room types
+- insufficient required room quantities
+- room area below minimum
+- room area above maximum
+- missing required adjacency
+- present forbidden adjacency
+
+Program issue codes:
+
+- `PROGRAM_MISSING_REQUIRED_ROOM`
+- `PROGRAM_AREA_BELOW_MINIMUM`
+- `PROGRAM_AREA_ABOVE_MAXIMUM`
+- `PROGRAM_REQUIRED_ADJACENCY_MISSING`
+- `PROGRAM_FORBIDDEN_ADJACENCY_PRESENT`
 
 ## ValidationIssue Format (MVP 4+)
 
@@ -250,6 +347,7 @@ Constraints express project requirements:
 ```
 
 **Constraint types:**
+
 - `min_area` — Minimum room area
 - `max_area` — Maximum room area
 - `required_connection` — Rooms must be connected
@@ -258,6 +356,7 @@ Constraints express project requirements:
 - `required_access_from_entry` — Room must be accessible from entry
 
 **Priority levels:**
+
 - `must` → severity: error
 - `should` → severity: warning
 - `nice_to_have` → severity: info
@@ -267,6 +366,7 @@ Constraints express project requirements:
 ## MVP History
 
 ### MVP 1 ✅ Core Plan JSON
+
 - Core Plan JSON structure
 - Area calculation (mm² → m²)
 - Basic validation (polygon points, door references)
@@ -274,6 +374,7 @@ Constraints express project requirements:
 - `/plans/validate` endpoint
 
 ### MVP 2 ✅ Connectivity Validation
+
 - Room type inference from id/name
 - Room graph construction using NetworkX
 - Entry room detection
@@ -281,12 +382,14 @@ Constraints express project requirements:
 - Privacy warnings (pantry-through-bathroom, direct public-private, etc.)
 
 ### MVP 3 ✅ SVG Debug Renderer
+
 - `POST /plans/render-svg` endpoint
 - Renders rooms, doors, windows, furniture with labels
 - Uses `data-id` and `data-entity-type` attributes
 - HTML escapes all text content to prevent XSS
 
 ### MVP 4 ✅ Geometric Validation + ValidationIssue v1
+
 - Structured `ValidationIssue` format via `make_issue()`
 - Geometric validation rules:
   - `ROOM_OVERLAP` — detect overlapping rooms
@@ -299,6 +402,7 @@ Constraints express project requirements:
 - Response includes `issues` and `geometry` blocks
 
 ### MVP 5 ✅ Issue Taxonomy + PlanningConstraint v1
+
 - Centralized issue taxonomy with 25+ issue codes
 - Categories: geometry, references, connectivity, privacy, area, furniture, constraints
 - `PlanningConstraint` model for declarative requirements
@@ -307,6 +411,7 @@ Constraints express project requirements:
 - Constraint violations returned as structured ValidationIssue objects
 
 ### MVP 6 ✅ ProjectBrief Lite
+
 - `ProjectBrief` model capturing project intent and context
 - `Household` and `Lifestyle` sub-models
 - Brief completeness scoring (0–100)
@@ -321,8 +426,21 @@ Constraints express project requirements:
   - `POST /plans/validate-with-brief` — combined plan + brief validation
 - Issue taxonomy extended with 13 brief-related issue codes
 
+### MVP 7 ✅ RoomProgram v1
+
+- `RoomProgram` and `RoomRequirement` models
+- Room type extraction from explicit `room_type` or deterministic id/name inference
+- Required and optional room requirements
+- Required room quantity checks
+- Min/max room area checks
+- Required adjacency checks
+- Forbidden adjacency checks
+- New endpoint:
+  - `POST /plans/program-check` — validate plan against structured RoomProgram
+- Issue taxonomy extended with 5 program-related issue codes
+
 ---
 
-## Next: MVP 7 — RoomProgram v1
+## Next: MVP 8 — SiteContext Lite
 
 See ROADMAP.md for future development plans.
